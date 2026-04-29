@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Orders - SmartOrnaments</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body onload="loadOrders(); showUser(); updateCartCount()">
+<nav>
+    <h2>SmartOrnaments</h2>
+    <button class="nav-toggle" onclick="toggleNav(this)" aria-label="Toggle menu">Menu</button>
+
+    <ul>
+        <li><a href="index.html">Home</a></li>
+        <li><a href="products.html">Products</a></li>
+        <li><a href="cart.html">Cart <span id="cartCount">0</span></a></li>
+        <li><a href="orders.html">Orders</a></li>
+    </ul>
+
+    <div id="userDisplay"></div>
+</nav>
+
+<section class="products">
+    <h2 class="fade-in">My Orders</h2>
+    <div id="orderList" class="product-container"></div>
+</section>
+
+<script src="js/script.js"></script>
+</body>
+</html>

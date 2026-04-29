@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Products - SmartOrnaments</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body onload="renderProducts(); updateCartCount();">
+<nav>
+    <h2>SmartOrnaments</h2>
+    <button class="nav-toggle" onclick="toggleNav(this)" aria-label="Toggle menu">Menu</button>
+    <ul>
+        <li><a href="index.html">Home</a></li>
+        <li><a href="products.html">Products</a></li>
+        <li><a href="cart.html">Cart <span id="cartCount">0</span></a></li>
+        <li><a href="contact.html">Contact</a></li>
+    </ul>
+</nav>
+
+<section class="products">
+    <h2>All Products</h2>
+    <button onclick="clearEmotionFilter()" class="filter-reset">Show All Products</button>
+    <input type="text" id="search" placeholder="Search products..." onkeyup="searchProduct()">
+
+    <div class="product-container" id="productList"></div>
+
+    <p id="noProducts" class="empty-state">No products found for this filter.</p>
+</section>
+
+<script src="js/script.js"></script>
+</body>
+</html>

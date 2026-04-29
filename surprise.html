@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Surprise Gift - SmartOrnaments</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <nav>
+        <h2>SmartOrnaments</h2>
+        <button class="nav-toggle" onclick="toggleNav(this)" aria-label="Toggle menu">Menu</button>
+        <a href="index.html" class="back-link">Back</a>
+    </nav>
+
+    <section class="products">
+        <h2>Surprise Gift Finder</h2>
+
+        <input type="text" id="name" placeholder="Friend name"><br><br>
+        <input type="number" id="budget" placeholder="Enter budget"><br><br>
+        <select id="occasion">
+            <option value="birthday">Birthday</option>
+            <option value="love">Love</option>
+            <option value="friend">Friendship</option>
+        </select>
+        <br><br>
+
+        <button onclick="generateGift()">Find Gift</button>
+
+        <h3 id="result"></h3>
+        <button id="orderBtn" style="display:none;" onclick="orderProduct()">Order Now</button>
+    </section>
+
+    <script src="js/script.js"></script>
+</body>
+</html>

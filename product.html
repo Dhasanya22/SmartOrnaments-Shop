@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Details - SmartOrnaments</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body onload="loadProduct(); updateCartCount();">
+    <nav>
+        <h2>SmartOrnaments</h2>
+        <button class="nav-toggle" onclick="toggleNav(this)" aria-label="Toggle menu">Menu</button>
+        <ul>
+            <li><a href="products.html">Back</a></li>
+            <li><a href="cart.html">Cart <span id="cartCount">0</span></a></li>
+        </ul>
+    </nav>
+
+    <section class="product-details">
+        <img id="productImg" src="" alt="Product">
+        <h2 id="productName"></h2>
+        <p id="productPrice"></p>
+        <p id="productDescription"></p>
+
+        <button onclick="orderProduct()">Order via WhatsApp</button>
+
+        <h3>Generate Gift Message</h3>
+        <select id="occasion">
+            <option value="birthday">Birthday</option>
+            <option value="love">Love</option>
+            <option value="friend">Friendship</option>
+        </select>
+
+        <br><br>
+
+        <button onclick="generateMessage()">Generate Message</button>
+        <button onclick="addCurrentProductToCart()">Add to Cart</button>
+
+        <p id="msg"></p>
+    </section>
+
+    <script src="js/script.js"></script>
+</body>
+</html>

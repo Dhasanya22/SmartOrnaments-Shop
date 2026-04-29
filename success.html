@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Confirmed - SmartOrnaments</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body onload="loadOrderSuccess(); updateCartCount(); showUser();">
+<nav>
+    <h2>SmartOrnaments</h2>
+    <button class="nav-toggle" onclick="toggleNav(this)" aria-label="Toggle menu">Menu</button>
+    <ul>
+        <li><a href="index.html">Home</a></li>
+        <li><a href="products.html">Products</a></li>
+        <li><a href="orders.html">Orders</a></li>
+        <li><a href="cart.html">Cart <span id="cartCount">0</span></a></li>
+    </ul>
+    <div id="userDisplay"></div>
+</nav>
+
+<section class="success-panel">
+    <span class="eyebrow">Order placed</span>
+    <h1>Thank you for ordering.</h1>
+    <p>Your WhatsApp order message is ready. Keep this order ID for tracking.</p>
+    <div class="success-card">
+        <h2 id="successOrderId">Order ID</h2>
+        <p id="successTotal"></p>
+        <p id="successOffer"></p>
+    </div>
+    <div class="success-actions">
+        <a href="orders.html" class="btn primary-btn">View Orders</a>
+        <a href="products.html" class="btn">Continue Shopping</a>
+    </div>
+</section>
+
+<script src="js/script.js"></script>
+</body>
+</html>

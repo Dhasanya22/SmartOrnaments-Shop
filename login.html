@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - SmartOrnaments</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="auth-page">
+<nav>
+    <h2>SmartOrnaments</h2>
+    <button class="nav-toggle" onclick="toggleNav(this)" aria-label="Toggle menu">Menu</button>
+    <ul>
+        <li><a href="index.html">Home</a></li>
+        <li><a href="products.html">Products</a></li>
+        <li><a href="contact.html">Contact</a></li>
+    </ul>
+</nav>
+
+<main class="auth-layout">
+    <section class="auth-panel">
+        <span class="eyebrow">Welcome back</span>
+        <h1>Login to manage gifts, cart, and orders.</h1>
+        <p>Use your customer account to continue shopping and track your SmartOrnaments orders.</p>
+
+        <div class="auth-benefits">
+            <div>
+                <strong>Fast checkout</strong>
+                <span>Save time while placing WhatsApp orders.</span>
+            </div>
+            <div>
+                <strong>Order history</strong>
+                <span>Track pending, confirmed, and delivered orders.</span>
+            </div>
+            <div>
+                <strong>One-time offers</strong>
+                <span>Spin rewards are connected to your customer account.</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="login-box auth-card">
+        <h2>Login / Signup</h2>
+        <p class="auth-subtitle">Create a simple local account for this shop.</p>
+
+        <label for="username">Username</label>
+        <input type="text" id="username" placeholder="Enter username" autocomplete="username">
+
+        <label for="password">Password</label>
+        <div class="password-field">
+            <input type="password" id="password" placeholder="Enter password" autocomplete="current-password">
+            <button type="button" onclick="togglePassword(this)">Show</button>
+        </div>
+
+        <div class="auth-actions">
+            <button onclick="login()">Login</button>
+            <button onclick="signup()" type="button" class="secondary-action">Signup</button>
+        </div>
+
+        <p id="msg" class="auth-message"></p>
+    </section>
+</main>
+
+<script src="js/script.js"></script>
+</body>
+</html>

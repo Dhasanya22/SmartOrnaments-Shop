@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartOrnaments Shop</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body onload="showUser(); updateCartCount(); renderFeaturedProducts();">
+    <nav>
+        <h2>SmartOrnaments</h2>
+        <button class="nav-toggle" onclick="toggleNav(this)" aria-label="Toggle menu">Menu</button>
+
+        <ul>
+            <li><a href="index.html">Home</a></li>
+            <li><a href="products.html">Products</a></li>
+            <li><a href="contact.html">Contact</a></li>
+            <li><a href="cart.html">Cart <span id="cartCount">0</span></a></li>
+            <li><a href="orders.html">Orders</a></li>
+        </ul>
+
+        <div class="nav-right">
+            <span id="userDisplay"></span>
+            <a href="login.html" class="login-btn">Login</a>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="hero-content">
+            <span class="eyebrow">Personalized gifts made for real moments</span>
+            <h1>SmartOrnaments Shop</h1>
+            <p>Custom keychains, bracelets, and keepsakes crafted with names, messages, and memories.</p>
+            <div class="hero-actions">
+                <a href="products.html" class="btn primary-btn">Shop Now</a>
+                <a href="surprise.html" class="btn">Find a Gift</a>
+            </div>
+        </div>
+        <div class="hero-showcase" aria-label="Featured SmartOrnaments products">
+            <img src="images/Keychain.jpeg" alt="Personalized keychain">
+            <img src="images/Braclet.jpeg" alt="Personalized bracelet">
+        </div>
+    </section>
+
+    <section class="quick-offer">
+        <div>
+            <h2>Spin & Win</h2>
+            <p>Available one time per customer after an order. No orders yet means better luck next time.</p>
+        </div>
+        <button onclick="spinWheel()" class="btn primary-btn">Spin Offer</button>
+        <p id="offer" class="offer-result"></p>
+    </section>
+
+    <section class="emotion">
+        <h2>Shop by Emotion</h2>
+        <div class="emotion-container">
+            <button onclick="filterEmotion('love')">Love</button>
+            <button onclick="filterEmotion('friend')">Friendship</button>
+            <button onclick="filterEmotion('birthday')">Birthday</button>
+            <button onclick="filterEmotion('sorry')">Sorry</button>
+        </div>
+    </section>
+
+    <section class="product">
+        <div class="section-heading">
+            <h2>Featured Products</h2>
+            <a href="products.html">View all</a>
+        </div>
+
+        <div class="product-container" id="featuredProducts"></div>
+    </section>
+
+    <section class="why">
+        <h2>Why Choose SmartOrnaments?</h2>
+        <div class="why-container">
+            <div class="why-box">
+                <h3>Custom Designs</h3>
+                <p>Add names, dates, photos, or messages to make every gift personal.</p>
+            </div>
+            <div class="why-box">
+                <h3>Fast Ordering</h3>
+                <p>Pick a product and place your order quickly through WhatsApp.</p>
+            </div>
+            <div class="why-box">
+                <h3>Made with Care</h3>
+                <p>Each piece is prepared with attention to the small details that matter.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="reviews">
+        <h2>What Customers Say</h2>
+        <div class="review-box">
+            <p>"Amazing quality. Loved the custom keychain!"</p>
+            <h4>- Priya</h4>
+        </div>
+        <div class="review-box">
+            <p>"Perfect gift for my friend. The finish was neat and beautiful."</p>
+            <h4>- Arun</h4>
+        </div>
+    </section>
+
+    <script src="js/script.js"></script>
+</body>
+</html>
