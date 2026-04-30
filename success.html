@@ -6,7 +6,7 @@
     <title>Order Confirmed - SmartOrnaments</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
-<body onload="loadOrderSuccess(); updateCartCount(); showUser();">
+<body onload="if (requireLogin()) { loadOrderSuccess(); updateCartCount(); showUser(); }">
 <nav>
     <h2>SmartOrnaments</h2>
     <button class="nav-toggle" onclick="toggleNav(this)" aria-label="Toggle menu">Menu</button>

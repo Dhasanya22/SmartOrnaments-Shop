@@ -2,6 +2,69 @@ function money(price) {
     return "Rs. " + price;
 }
 
+function orderMoney(price) {
+    return "₹" + price;
+}
+
+function getFieldValue(id) {
+    const field = document.getElementById(id);
+    return field ? field.value.trim() : "";
+}
+
+function titleFromValue(value) {
+    const labels = {
+        friend: "Friend",
+        family: "Family",
+        partner: "Partner",
+        sibling: "Sibling"
+    };
+
+    return labels[value] || value || "Not provided";
+}
+
+function occasionTitle(value) {
+    const labels = {
+        birthday: "Birthday",
+        love: "Love",
+        friend: "Friendship"
+    };
+
+    return labels[value] || value || "Not provided";
+}
+
+function defaultRelationship(occasion) {
+    if (occasion === "love") return "Partner";
+    if (occasion === "family") return "Family";
+    return occasion ? "Friend" : "";
+}
+
+function buildDirectOrderMessage(product, price, details = {}) {
+    const occasion = details.occasion || "";
+    const relationship = details.relationship || defaultRelationship(occasion);
+
+    return [
+        "Hi, I want to order:",
+        "",
+        `Product: ${product || "Custom Keychain"}`,
+        `Name: ${details.name || "Not provided"}`,
+        `Occasion: ${occasionTitle(occasion)}`,
+        `Relationship: ${titleFromValue(relationship)}`,
+        `Price: ${orderMoney(price || 0)}`,
+        "",
+        "Please confirm my order 🙂"
+    ].join("\n");
+}
+
+function getDirectOrderDetails() {
+    const isGiftFinder = Boolean(document.getElementById("budget"));
+
+    return {
+        name: getFieldValue("name") || (isGiftFinder ? localStorage.getItem("giftName") || "" : ""),
+        occasion: getFieldValue("occasion") || (isGiftFinder ? localStorage.getItem("giftOccasion") || "" : ""),
+        relationship: getFieldValue("relationship") || (isGiftFinder ? localStorage.getItem("giftRelationship") || "" : "")
+    };
+}
+
 const useBackend = location.protocol === "http:" || location.protocol === "https:";
 
 async function apiRequest(path, options = {}) {
@@ -18,6 +81,11 @@ async function apiRequest(path, options = {}) {
     }
 
     return data;
+}
+
+function isApiUnavailableError(error) {
+    return error instanceof TypeError
+        || ["API route not found", "Request failed", "Failed to fetch"].includes(error.message);
 }
 
 function getCustomerKey() {
@@ -266,7 +334,7 @@ function resetProductForm() {
 }
 
 function orderNow(product, price) {
-    const message = `Hi, I want to order:\nProduct: ${product}\nPrice: ${money(price)}`;
+    const message = buildDirectOrderMessage(product, price);
     const url = `https://wa.me/916374118664?text=${encodeURIComponent(message)}`;
     window.open(url, "_blank");
 }
@@ -314,9 +382,7 @@ function loadProduct() {
 function orderProduct() {
     const name = localStorage.getItem("productName");
     const price = localStorage.getItem("productPrice");
-    const customMsg = localStorage.getItem("customMessage") || "";
-    const offer = localStorage.getItem("offer") || "No offer";
-    const message = `Hi, I want to order:\nProduct: ${name}\nPrice: ${money(price)}\nMessage: ${customMsg}\nOffer: ${offer}`;
+    const message = buildDirectOrderMessage(name, price, getDirectOrderDetails());
     const url = `https://wa.me/916374118664?text=${encodeURIComponent(message)}`;
 
     window.open(url, "_blank");
@@ -334,8 +400,10 @@ function addCurrentProductToCart() {
 }
 
 function generateGift() {
+    const recipientName = getFieldValue("name");
     const budget = Number(document.getElementById("budget").value);
     const type = document.getElementById("occasion").value;
+    const relationship = getFieldValue("relationship") || defaultRelationship(type);
     let product = "";
     let price = 0;
 
@@ -343,7 +411,7 @@ function generateGift() {
         product = budget <= 100 ? "Mini Love Keychain" : "Romantic Ornament";
         price = budget <= 100 ? 99 : 199;
     } else if (type === "birthday") {
-        product = budget <= 150 ? "Birthday Keychain" : "Custom Name Gift";
+        product = budget <= 150 ? "Birthday Keychain" : "Custom Keychain";
         price = budget <= 150 ? 120 : 199;
     } else {
         product = budget <= 100 ? "Friendship Band" : "Best Friend Keychain";
@@ -353,6 +421,9 @@ function generateGift() {
     document.getElementById("result").innerText = `Suggested Gift: ${product} (${money(price)})`;
     localStorage.setItem("productName", product);
     localStorage.setItem("productPrice", price);
+    localStorage.setItem("giftName", recipientName);
+    localStorage.setItem("giftOccasion", type);
+    localStorage.setItem("giftRelationship", relationship);
     document.getElementById("orderBtn").style.display = "block";
 }
 
@@ -447,63 +518,243 @@ function spinWheel() {
     localStorage.setItem(spinKey, "true");
 }
 
+let authMode = "login";
+
+function authElements() {
+    return {
+        username: document.getElementById("username"),
+        password: document.getElementById("password"),
+        remember: document.getElementById("rememberUser"),
+        title: document.getElementById("authTitle"),
+        subtitle: document.getElementById("authSubtitle"),
+        submit: document.getElementById("authSubmit"),
+        switchButton: document.getElementById("authSwitch"),
+        loginTab: document.getElementById("loginTab"),
+        signupTab: document.getElementById("signupTab"),
+        sessionMsg: document.getElementById("sessionMsg"),
+        msg: document.getElementById("msg")
+    };
+}
+
+function setAuthMessage(text, type = "") {
+    const { msg } = authElements();
+    if (!msg) return;
+
+    msg.innerText = text;
+    msg.className = "auth-message" + (type ? " " + type : "");
+}
+
+function setAuthMode(mode) {
+    authMode = mode === "signup" ? "signup" : "login";
+    const els = authElements();
+    if (!els.title) return;
+
+    const isSignup = authMode === "signup";
+    els.title.innerText = isSignup ? "Create Account" : "Login";
+    els.subtitle.innerText = isSignup
+        ? "Create your account and start shopping."
+        : "Enter your account details to continue.";
+    els.submit.innerText = isSignup ? "Signup" : "Login";
+    els.switchButton.innerText = isSignup ? "Already have an account?" : "Create account";
+    els.password.autocomplete = isSignup ? "new-password" : "current-password";
+    els.loginTab.classList.toggle("active", !isSignup);
+    els.signupTab.classList.toggle("active", isSignup);
+    setAuthMessage("");
+}
+
+function toggleAuthMode() {
+    setAuthMode(authMode === "login" ? "signup" : "login");
+}
+
+function initAuthPage() {
+    showUser();
+
+    const params = new URLSearchParams(window.location.search);
+    setAuthMode(params.get("mode") === "signup" ? "signup" : "login");
+
+    const els = authElements();
+    const rememberedUsername = localStorage.getItem("rememberedUsername");
+    const loggedInUser = localStorage.getItem("loggedInUser");
+    const role = localStorage.getItem("userRole");
+
+    if (rememberedUsername && els.username) {
+        els.username.value = rememberedUsername;
+        if (els.remember) els.remember.checked = true;
+    }
+
+    if (loggedInUser && els.sessionMsg) {
+        const target = role === "admin" ? "admin.html" : "index.html";
+        els.sessionMsg.innerHTML = `Signed in as <b>${escapeHtml(loggedInUser)}</b>. <a href="${target}">Continue</a>`;
+    }
+}
+
+function submitAuth(event) {
+    event.preventDefault();
+    return authMode === "signup" ? signup() : login();
+}
+
+function getAuthCredentials() {
+    const { username, password } = authElements();
+    const enteredUsername = username?.value.trim() || "";
+    const enteredPassword = password?.value || "";
+
+    if (!enteredUsername || !enteredPassword) {
+        setAuthMessage("Enter username and password", "error");
+        return null;
+    }
+
+    return {
+        username: enteredUsername,
+        password: enteredPassword
+    };
+}
+
+function rememberUsername(username) {
+    const { remember } = authElements();
+    if (remember?.checked) {
+        localStorage.setItem("rememberedUsername", username);
+    } else {
+        localStorage.removeItem("rememberedUsername");
+    }
+}
+
+function loginDestination(role) {
+    return role === "admin" ? "admin.html" : "index.html";
+}
+
+function completeLogin(user, token = "") {
+    localStorage.setItem("loggedInUser", user.username);
+    localStorage.setItem("userRole", user.role || "customer");
+
+    if (token) {
+        localStorage.setItem("authToken", token);
+    } else {
+        localStorage.removeItem("authToken");
+    }
+
+    rememberUsername(user.username);
+    setAuthMessage("Login successful", "success");
+    setTimeout(() => window.location.href = loginDestination(user.role), 700);
+}
+
+function getLocalUsers() {
+    let users = [];
+
+    try {
+        const savedUsers = JSON.parse(localStorage.getItem("localUsers") || "[]");
+        users = Array.isArray(savedUsers) ? savedUsers : [];
+    } catch (error) {
+        users = [];
+    }
+
+    if (!users.some(user => user.username.toLowerCase() === "admin")) {
+        users.push({ username: "admin", password: "admin123", role: "admin" });
+    }
+
+    const legacyUsername = localStorage.getItem("user");
+    const legacyPassword = localStorage.getItem("pass");
+    const hasLegacyUser = legacyUsername && legacyPassword
+        && !users.some(user => user.username.toLowerCase() === legacyUsername.toLowerCase());
+
+    if (hasLegacyUser) {
+        users.push({
+            username: legacyUsername,
+            password: legacyPassword,
+            role: legacyUsername.toLowerCase() === "admin" ? "admin" : "customer"
+        });
+    }
+
+    return users;
+}
+
+function saveLocalUsers(users) {
+    localStorage.setItem("localUsers", JSON.stringify(users));
+}
+
 async function signup() {
-    if (!username.value || !password.value) {
-        msg.innerText = "Enter username and password";
-        return;
+    const credentials = getAuthCredentials();
+    if (!credentials) return false;
+
+    if (credentials.password.length < 4) {
+        setAuthMessage("Password must be at least 4 characters", "error");
+        return false;
     }
 
     if (useBackend) {
         try {
             await apiRequest("/api/signup", {
                 method: "POST",
-                body: JSON.stringify({ username: username.value, password: password.value })
+                body: JSON.stringify(credentials)
             });
-            msg.innerText = "Signup successful. You can login now.";
-            return;
+            setAuthMessage("Account created. Logging in...", "success");
+            await login();
+            return true;
         } catch (error) {
-            msg.innerText = error.message;
-            return;
+            if (isApiUnavailableError(error)) {
+                console.warn(error.message);
+            } else {
+                setAuthMessage(error.message, "error");
+                return false;
+            }
         }
     }
 
-    localStorage.setItem("user", username.value);
-    localStorage.setItem("pass", password.value);
-    msg.innerText = "Signup successful";
+    const users = getLocalUsers();
+    const exists = users.some(user => user.username.toLowerCase() === credentials.username.toLowerCase());
+
+    if (exists) {
+        setAuthMessage("Username already exists", "error");
+        return false;
+    }
+
+    const user = {
+        username: credentials.username,
+        password: credentials.password,
+        role: "customer"
+    };
+
+    users.push(user);
+    saveLocalUsers(users);
+    localStorage.setItem("user", credentials.username);
+    localStorage.setItem("pass", credentials.password);
+    completeLogin(user);
+    return true;
 }
 
 async function login() {
-    if (!username.value || !password.value) {
-        msg.innerText = "Enter username and password";
-        return;
-    }
+    const credentials = getAuthCredentials();
+    if (!credentials) return false;
 
     if (useBackend) {
         try {
             const data = await apiRequest("/api/login", {
                 method: "POST",
-                body: JSON.stringify({ username: username.value, password: password.value })
+                body: JSON.stringify(credentials)
             });
-            localStorage.setItem("authToken", data.token);
-            localStorage.setItem("loggedInUser", data.user.username);
-            localStorage.setItem("userRole", data.user.role);
-            msg.innerText = "Login successful";
-            setTimeout(() => window.location.href = "index.html", 1000);
-            return;
+            completeLogin(data.user, data.token);
+            return true;
         } catch (error) {
-            msg.innerText = error.message;
-            return;
+            if (isApiUnavailableError(error)) {
+                console.warn(error.message);
+            } else {
+                setAuthMessage(error.message, "error");
+                return false;
+            }
         }
     }
 
-    if (username.value === localStorage.getItem("user") &&
-        password.value === localStorage.getItem("pass")) {
-        localStorage.setItem("loggedInUser", username.value);
-        msg.innerText = "Login successful";
-        setTimeout(() => window.location.href = "index.html", 1000);
-    } else {
-        msg.innerText = "Invalid login";
+    const user = getLocalUsers().find(item =>
+        item.username.toLowerCase() === credentials.username.toLowerCase()
+        && item.password === credentials.password
+    );
+
+    if (!user) {
+        setAuthMessage("Invalid login. Signup first or use admin / admin123.", "error");
+        return false;
     }
+
+    completeLogin(user);
+    return true;
 }
 
 function togglePassword(button) {
@@ -514,16 +765,60 @@ function togglePassword(button) {
     button.innerText = isHidden ? "Hide" : "Show";
 }
 
-document.addEventListener("keydown", event => {
-    if (event.key === "Enter" && document.body.classList.contains("auth-page")) {
-        login();
-    }
-});
+function escapeHtml(value) {
+    const div = document.createElement("div");
+    div.textContent = value;
+    return div.innerHTML;
+}
 
 function showUser() {
     const user = localStorage.getItem("loggedInUser");
-    const display = document.getElementById("userDisplay");
-    if (user && display) display.innerText = "User: " + user;
+    const role = localStorage.getItem("userRole");
+    const displays = document.querySelectorAll("#userDisplay");
+
+    displays.forEach(display => {
+        display.classList.add("user-menu");
+
+        if (!user) {
+            display.innerHTML = "";
+            return;
+        }
+
+        const nav = display.closest("nav");
+        const hasLoginButton = nav?.querySelector(".login-btn");
+        const adminLink = role === "admin" ? `<a href="admin.html">Admin</a>` : "";
+        const logoutButton = hasLoginButton ? "" : `<button type="button" onclick="logout(event)">Logout</button>`;
+
+        display.innerHTML = `
+            <span class="user-chip">Hi, ${escapeHtml(user)}</span>
+            ${adminLink}
+            ${logoutButton}
+        `;
+    });
+
+    document.querySelectorAll(".login-btn").forEach(link => {
+        if (!user) {
+            link.href = "login.html";
+            link.innerText = "Login";
+            link.onclick = null;
+            link.classList.remove("is-logout");
+            return;
+        }
+
+        link.href = "#";
+        link.innerText = "Logout";
+        link.onclick = logout;
+        link.classList.add("is-logout");
+    });
+}
+
+function requireLogin() {
+    if (localStorage.getItem("loggedInUser")) {
+        return true;
+    }
+
+    window.location.href = "login.html";
+    return false;
 }
 
 function addToCart(name, price) {
@@ -900,7 +1195,7 @@ function checkAdmin() {
         return;
     }
 
-    if (!useBackend && user !== "admin") {
+    if (!useBackend && role !== "admin" && user !== "admin") {
         alert("Access Denied");
         window.location.href = "login.html";
     }
@@ -971,7 +1266,9 @@ async function loadAdminOrders() {
 
 }
 
-async function logout() {
+async function logout(event) {
+    if (event) event.preventDefault();
+
     if (useBackend) {
         try {
             await apiRequest("/api/logout", { method: "POST" });

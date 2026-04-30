@@ -154,7 +154,7 @@ function nextOrderId(db) {
 
 function serveStatic(req, res) {
     const requestPath = decodeURIComponent(req.url.split("?")[0]);
-    const safePath = requestPath === "/" ? "/index.html" : requestPath;
+    const safePath = requestPath === "/" ? "/login.html" : requestPath;
     const segments = safePath.split("/").filter(Boolean);
     const filePath = path.normalize(path.join(ROOT, safePath));
 

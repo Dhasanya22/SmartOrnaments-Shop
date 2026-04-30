@@ -6,7 +6,7 @@
     <title>Product Details - SmartOrnaments</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
-<body onload="loadProduct(); updateCartCount();">
+<body onload="if (requireLogin()) { loadProduct(); updateCartCount(); showUser(); }">
     <nav>
         <h2>SmartOrnaments</h2>
         <button class="nav-toggle" onclick="toggleNav(this)" aria-label="Toggle menu">Menu</button>
@@ -14,6 +14,7 @@
             <li><a href="products.html">Back</a></li>
             <li><a href="cart.html">Cart <span id="cartCount">0</span></a></li>
         </ul>
+        <div id="userDisplay"></div>
     </nav>
 
     <section class="product-details">

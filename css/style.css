@@ -132,6 +132,40 @@ nav ul li a:hover {
     margin-top: 48px;
 }
 
+.surprise-hero {
+    min-height: 460px;
+    display: grid;
+    place-items: center;
+    padding: 72px 8%;
+    text-align: center;
+    background:
+        radial-gradient(circle at 18% 22%, rgba(255,255,255,0.82) 0 13%, transparent 14%),
+        linear-gradient(135deg, #ff4d6d 0%, #ff8fab 42%, #0f766e 100%);
+    color: white;
+}
+
+.surprise-hero-content {
+    max-width: 780px;
+}
+
+.surprise-hero h1 {
+    margin: 0;
+    font-size: 58px;
+    line-height: 1.08;
+    text-shadow: 0 8px 24px rgba(0,0,0,0.18);
+}
+
+.surprise-hero .btn {
+    margin-top: 30px;
+    padding: 14px 30px;
+    border-color: white;
+    box-shadow: 0 14px 32px rgba(17,17,17,0.22);
+}
+
+.gift-finder {
+    background: white;
+}
+
 /* Button */
 .btn {
     background: white;
@@ -344,6 +378,15 @@ nav ul li a:hover {
         font-size: 28px;
     }
 
+    .surprise-hero {
+        min-height: 380px;
+        padding: 56px 20px;
+    }
+
+    .surprise-hero h1 {
+        font-size: 36px;
+    }
+
     .hero {
         grid-template-columns: 1fr;
         padding: 48px 20px;
@@ -421,7 +464,7 @@ nav ul li a:hover {
     text-align: center;
 }
 
-.login-box input {
+.login-box input:not([type="checkbox"]) {
     width: 90%;
     padding: 10px;
     margin: 10px 0;
@@ -505,6 +548,44 @@ nav ul li a:hover {
     box-shadow: 0 18px 45px rgba(0,0,0,0.12);
 }
 
+.auth-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 18px;
+    background: #f3f4f6;
+    border-radius: 8px;
+    padding: 5px;
+}
+
+.auth-tabs button {
+    width: 100%;
+    margin: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: #333;
+}
+
+.auth-tabs button.active {
+    background: #111;
+    color: white;
+}
+
+.auth-session {
+    min-height: 22px;
+    margin: 0 0 14px;
+    color: #555;
+    font-size: 14px;
+}
+
+.auth-session a,
+.auth-meta a,
+.user-menu a {
+    color: #0f766e;
+    font-weight: 600;
+    text-decoration: none;
+}
+
 .auth-card h2 {
     margin: 0 0 6px;
 }
@@ -521,7 +602,7 @@ nav ul li a:hover {
     font-weight: 600;
 }
 
-.auth-card input {
+.auth-card input:not([type="checkbox"]) {
     width: 100%;
     box-sizing: border-box;
     margin: 0;
@@ -539,6 +620,28 @@ nav ul li a:hover {
     margin: 0;
     padding: 10px 14px;
     background: #111;
+}
+
+.auth-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-top: 14px;
+    font-size: 14px;
+}
+
+.auth-card .remember-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    color: #555;
+}
+
+.remember-row input,
+input[type="checkbox"] {
+    width: auto;
 }
 
 .auth-actions {
@@ -568,6 +671,43 @@ nav ul li a:hover {
     min-height: 22px;
     font-weight: 600;
     margin: 16px 0 0;
+}
+
+.auth-message.success {
+    color: #0f766e;
+}
+
+.auth-message.error {
+    color: #c0262d;
+}
+
+.user-menu {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: white;
+}
+
+.user-chip {
+    color: white;
+    font-weight: 600;
+}
+
+.user-menu button {
+    background: #ff4d6d;
+    color: white;
+    border: none;
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-family: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.user-menu button:hover,
+.login-btn.is-logout:hover {
+    background: white;
+    color: #ff4d6d;
 }
 
 
@@ -924,12 +1064,26 @@ section {
         font-size: 26px;
     }
 
+    .surprise-hero h1 {
+        font-size: 32px;
+    }
+
     #search {
         width: 90%;
     }
 
     input {
         width: 90%;
+    }
+
+    .auth-card input:not([type="checkbox"]) {
+        width: 100%;
+    }
+
+    .auth-meta,
+    .user-menu {
+        justify-content: center;
+        flex-wrap: wrap;
     }
 
     .auth-actions {
@@ -965,12 +1119,20 @@ section {
         font-size: 26px;
     }
 
+    .surprise-hero h1 {
+        font-size: 32px;
+    }
+
     #search {
         width: 90%;
     }
 
     input {
         width: 90%;
+    }
+
+    .auth-card input:not([type="checkbox"]) {
+        width: 100%;
     }
 }
 #orderList .card {

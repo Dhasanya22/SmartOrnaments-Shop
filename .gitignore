@@ -1,2 +1,4 @@
 data/db.json
 node_modules/
+server.dev.log
+server.dev.err

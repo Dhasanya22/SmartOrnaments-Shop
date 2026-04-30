@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 
-<body onload="loadCart(); updateCartCount(); showUser();">
+<body onload="if (requireLogin()) { loadCart(); updateCartCount(); showUser(); }">
 <nav>
     <h2>SmartOrnaments</h2>
     <button class="nav-toggle" onclick="toggleNav(this)" aria-label="Toggle menu">Menu</button>

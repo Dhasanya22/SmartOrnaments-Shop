@@ -6,18 +6,33 @@
     <title>Surprise Gift - SmartOrnaments</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
-<body>
+<body onload="if (requireLogin()) { showUser(); }">
     <nav>
         <h2>SmartOrnaments</h2>
         <button class="nav-toggle" onclick="toggleNav(this)" aria-label="Toggle menu">Menu</button>
         <a href="index.html" class="back-link">Back</a>
+        <div id="userDisplay"></div>
     </nav>
 
-    <section class="products">
+    <section class="surprise-hero">
+        <div class="surprise-hero-content">
+            <h1>Find the Perfect Gift for Every Emotion &#10084;&#65039;</h1>
+            <a href="#gift-finder" class="btn primary-btn">Find My Gift</a>
+        </div>
+    </section>
+
+    <section class="products gift-finder" id="gift-finder">
         <h2>Surprise Gift Finder</h2>
 
         <input type="text" id="name" placeholder="Friend name"><br><br>
         <input type="number" id="budget" placeholder="Enter budget"><br><br>
+        <select id="relationship">
+            <option value="friend">Friend</option>
+            <option value="family">Family</option>
+            <option value="partner">Partner</option>
+            <option value="sibling">Sibling</option>
+        </select>
+        <br><br>
         <select id="occasion">
             <option value="birthday">Birthday</option>
             <option value="love">Love</option>
@@ -25,7 +40,7 @@
         </select>
         <br><br>
 
-        <button onclick="generateGift()">Find Gift</button>
+        <button onclick="generateGift()">Find My Gift</button>
 
         <h3 id="result"></h3>
         <button id="orderBtn" style="display:none;" onclick="orderProduct()">Order Now</button>

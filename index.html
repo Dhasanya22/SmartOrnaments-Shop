@@ -6,7 +6,7 @@
     <title>SmartOrnaments Shop</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
-<body onload="showUser(); updateCartCount(); renderFeaturedProducts();">
+<body onload="if (requireLogin()) { showUser(); updateCartCount(); renderFeaturedProducts(); }">
     <nav>
         <h2>SmartOrnaments</h2>
         <button class="nav-toggle" onclick="toggleNav(this)" aria-label="Toggle menu">Menu</button>
