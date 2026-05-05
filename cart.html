@@ -7,21 +7,22 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 
-<body onload="if (requireLogin()) { loadCart(); updateCartCount(); showUser(); }">
+<body onload="loadCart(); updateCartCount(); showUser();">
 <nav>
-    <h2>SmartOrnaments</h2>
+    <h2 class="brand">
+        <img src="images/Logo.png" alt="SmartOrnaments logo" class="brand-logo">
+        <span class="brand-name">SmartOrnaments</span>
+    </h2>
     <button class="nav-toggle" onclick="toggleNav(this)" aria-label="Toggle menu">Menu</button>
 
     <ul>
         <li><a href="index.html">Home</a></li>
         <li><a href="products.html">Products</a></li>
+        <li><a href="cart.html">Cart <span id="cartCount">0</span></a></li>
         <li><a href="orders.html">Orders</a></li>
     </ul>
 
-    <div>
-        Cart <span id="cartCount">0</span>
-        <span id="userDisplay"></span>
-    </div>
+    <div id="userDisplay"></div>
 </nav>
 
 <section class="products">
@@ -35,6 +36,10 @@
         <input type="text" id="userName" placeholder="Full name" oninput="updateOrderSummary()">
         <input type="tel" id="phone" placeholder="Phone number" oninput="updateOrderSummary()">
         <input type="text" id="address" placeholder="Delivery address" oninput="updateOrderSummary()">
+        <input type="text" id="state" placeholder="State" oninput="updateOrderSummary()">
+        <input type="text" id="district" placeholder="District" oninput="updateOrderSummary()">
+        <input type="text" id="buildingStreet" placeholder="Building no & street name" oninput="updateOrderSummary()">
+        <input type="text" id="pincode" placeholder="Pincode" inputmode="numeric" oninput="updateOrderSummary()">
         <textarea id="customization" placeholder="Customization message, names, dates, or gift note" oninput="updateOrderSummary()"></textarea>
         <textarea id="deliveryNote" placeholder="Delivery note, landmark, or preferred time" oninput="updateOrderSummary()"></textarea>
         <div class="order-summary">

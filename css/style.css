@@ -32,6 +32,31 @@ nav h2 {
     margin: 0;
 }
 
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    line-height: 1;
+    min-width: 0;
+}
+
+.brand-logo {
+    width: 42px;
+    height: 42px;
+    object-fit: contain;
+    border-radius: 8px;
+    background: white;
+    padding: 3px;
+    flex: 0 0 auto;
+}
+
+.brand-name {
+    color: #ff4d6d;
+    font-size: 24px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
 .nav-toggle {
     display: none;
     background: #ff4d6d;
@@ -329,10 +354,25 @@ nav ul li a:hover {
         flex-direction: row;
         flex-wrap: wrap;
         align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
     }
 
     nav h2 {
         flex: 1;
+    }
+
+    .brand {
+        gap: 8px;
+    }
+
+    .brand-logo {
+        width: 36px;
+        height: 36px;
+    }
+
+    .brand-name {
+        font-size: 20px;
     }
 
     .nav-toggle {

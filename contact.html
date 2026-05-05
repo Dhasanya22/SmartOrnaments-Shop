@@ -6,14 +6,18 @@
     <title>Contact - SmartOrnaments</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
-<body onload="if (requireLogin()) { showUser(); updateCartCount(); }">
+<body onload="showUser(); updateCartCount();">
     <nav>
-        <h2>SmartOrnaments</h2>
+        <h2 class="brand">
+            <img src="images/Logo.png" alt="SmartOrnaments logo" class="brand-logo">
+            <span class="brand-name">SmartOrnaments</span>
+        </h2>
         <button class="nav-toggle" onclick="toggleNav(this)" aria-label="Toggle menu">Menu</button>
         <ul>
             <li><a href="index.html">Home</a></li>
             <li><a href="products.html">Products</a></li>
             <li><a href="cart.html">Cart <span id="cartCount">0</span></a></li>
+            <li><a href="orders.html">Orders</a></li>
             <li><a href="contact.html">Contact</a></li>
         </ul>
         <div id="userDisplay"></div>

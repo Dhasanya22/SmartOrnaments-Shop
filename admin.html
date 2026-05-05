@@ -7,16 +7,20 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 
-<body onload="checkAdmin(); showUser(); loadAdminProducts(); loadAdminOrders();">
+<body onload="checkAdmin(); showUser(); loadAdminProducts(); loadAdminOrders(); updateCartCount();">
 <nav>
-    <h2>SmartOrnaments</h2>
+    <h2 class="brand">
+        <img src="images/Logo.png" alt="SmartOrnaments logo" class="brand-logo">
+        <span class="brand-name">SmartOrnaments</span>
+    </h2>
     <button class="nav-toggle" onclick="toggleNav(this)" aria-label="Toggle menu">Menu</button>
 
     <div style="display:flex; gap:20px; align-items:center;">
         <span id="userDisplay"></span>
         <a href="index.html">Home</a>
+        <a href="cart.html">Cart <span id="cartCount">0</span></a>
         <a href="orders.html">Orders</a>
-        <a href="#" onclick="logout()">Logout</a>
+        <a href="#" onclick="logout()" class="login-btn">Logout</a>
     </div>
 </nav>
 

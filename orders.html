@@ -9,7 +9,10 @@
 
 <body onload="if (requireLogin()) { loadOrders(); showUser(); updateCartCount(); }">
 <nav>
-    <h2>SmartOrnaments</h2>
+    <h2 class="brand">
+        <img src="images/Logo.png" alt="SmartOrnaments logo" class="brand-logo">
+        <span class="brand-name">SmartOrnaments</span>
+    </h2>
     <button class="nav-toggle" onclick="toggleNav(this)" aria-label="Toggle menu">Menu</button>
 
     <ul>

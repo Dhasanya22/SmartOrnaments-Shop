@@ -167,6 +167,9 @@ function quote(value) {
 }
 
 function productCard(product, options = {}) {
+    const orderButton = options.orderAddsToCart
+        ? `<button onclick="addToCart('${quote(product.name)}', ${product.price})">Order</button>`
+        : `<button onclick="orderNow('${quote(product.name)}', ${product.price})">Order</button>`;
     const addCartButton = options.hideCart
         ? ""
         : `<button onclick="addToCart('${quote(product.name)}', ${product.price})">Add to Cart</button>`;
@@ -183,7 +186,7 @@ function productCard(product, options = {}) {
             <h3 onclick="openProduct('${quote(product.id)}')">${product.name}</h3>
             <p>${money(product.price)}</p>
             <small>${product.description || ""}</small>
-            <button onclick="orderNow('${quote(product.name)}', ${product.price})">Order</button>
+            ${orderButton}
             ${addCartButton}
             ${adminButtons}
         </div>
@@ -195,7 +198,7 @@ async function renderFeaturedProducts() {
     if (!container) return;
 
     const products = (await getProductsData()).filter(product => product.featured).slice(0, 3);
-    container.innerHTML = products.map(product => productCard(product, { hideCart: true })).join("");
+    container.innerHTML = products.map(product => productCard(product, { hideCart: true, orderAddsToCart: true })).join("");
 }
 
 async function renderProducts() {
@@ -333,10 +336,47 @@ function resetProductForm() {
     if (msg) msg.innerText = "";
 }
 
-function orderNow(product, price) {
-    const message = buildDirectOrderMessage(product, price);
-    const url = `https://wa.me/916374118664?text=${encodeURIComponent(message)}`;
+function buildWhatsAppOrderUrl(product, price, details = {}) {
+    const message = buildDirectOrderMessage(product, price, details);
+    return `https://wa.me/916374118664?text=${encodeURIComponent(message)}`;
+}
+
+function savePendingDirectOrder(product, price, details = {}) {
+    sessionStorage.setItem("pendingDirectOrder", JSON.stringify({ product, price, details }));
+}
+
+function takePendingDirectOrder() {
+    const savedOrder = sessionStorage.getItem("pendingDirectOrder");
+    sessionStorage.removeItem("pendingDirectOrder");
+
+    if (!savedOrder) return null;
+
+    try {
+        return JSON.parse(savedOrder);
+    } catch (error) {
+        return null;
+    }
+}
+
+function openDirectOrder(product, price, details = {}, sameWindow = false) {
+    const url = buildWhatsAppOrderUrl(product, price, details);
+
+    if (sameWindow) {
+        window.location.href = url;
+        return;
+    }
+
     window.open(url, "_blank");
+}
+
+function orderNow(product, price) {
+    if (!localStorage.getItem("loggedInUser")) {
+        savePendingDirectOrder(product, price);
+        requireLogin(getCurrentPage());
+        return;
+    }
+
+    openDirectOrder(product, price);
 }
 
 function searchProduct() {
@@ -382,10 +422,15 @@ function loadProduct() {
 function orderProduct() {
     const name = localStorage.getItem("productName");
     const price = localStorage.getItem("productPrice");
-    const message = buildDirectOrderMessage(name, price, getDirectOrderDetails());
-    const url = `https://wa.me/916374118664?text=${encodeURIComponent(message)}`;
+    const details = getDirectOrderDetails();
 
-    window.open(url, "_blank");
+    if (!localStorage.getItem("loggedInUser")) {
+        savePendingDirectOrder(name, price, details);
+        requireLogin(getCurrentPage());
+        return;
+    }
+
+    openDirectOrder(name, price, details);
 }
 
 function getPurchasedItems() {
@@ -568,6 +613,7 @@ function toggleAuthMode() {
 
 function initAuthPage() {
     showUser();
+    updateCartCount();
 
     const params = new URLSearchParams(window.location.search);
     setAuthMode(params.get("mode") === "signup" ? "signup" : "login");
@@ -583,7 +629,7 @@ function initAuthPage() {
     }
 
     if (loggedInUser && els.sessionMsg) {
-        const target = role === "admin" ? "admin.html" : "index.html";
+        const target = role === "admin" ? "admin.html" : getPendingLoginRedirect() || "index.html";
         els.sessionMsg.innerHTML = `Signed in as <b>${escapeHtml(loggedInUser)}</b>. <a href="${target}">Continue</a>`;
     }
 }
@@ -618,8 +664,43 @@ function rememberUsername(username) {
     }
 }
 
+function isSafeLocalRedirect(value) {
+    return /^[a-z0-9_.-]+\.html(?:[?#].*)?$/i.test(value || "");
+}
+
+function getPendingLoginRedirect(clear = false) {
+    const params = new URLSearchParams(window.location.search);
+    const redirect = params.get("redirect") || sessionStorage.getItem("loginRedirect") || "";
+    const safeRedirect = isSafeLocalRedirect(redirect) ? redirect : "";
+
+    if (clear) {
+        sessionStorage.removeItem("loginRedirect");
+    }
+
+    return safeRedirect;
+}
+
+function getCurrentPage() {
+    const page = window.location.pathname.split("/").pop() || "index.html";
+    return page + window.location.search + window.location.hash;
+}
+
 function loginDestination(role) {
-    return role === "admin" ? "admin.html" : "index.html";
+    if (role === "admin") return "admin.html";
+    return getPendingLoginRedirect(true) || "index.html";
+}
+
+function resumePendingDirectOrder() {
+    const pendingOrder = takePendingDirectOrder();
+    if (!pendingOrder) return false;
+
+    sessionStorage.removeItem("loginRedirect");
+    setAuthMessage("Login successful. Opening WhatsApp...", "success");
+    setTimeout(() => {
+        openDirectOrder(pendingOrder.product, pendingOrder.price, pendingOrder.details || {}, true);
+    }, 700);
+
+    return true;
 }
 
 function completeLogin(user, token = "") {
@@ -633,6 +714,12 @@ function completeLogin(user, token = "") {
     }
 
     rememberUsername(user.username);
+    if (user.role === "admin") {
+        sessionStorage.removeItem("pendingDirectOrder");
+    } else if (resumePendingDirectOrder()) {
+        return;
+    }
+
     setAuthMessage("Login successful", "success");
     setTimeout(() => window.location.href = loginDestination(user.role), 700);
 }
@@ -812,12 +899,14 @@ function showUser() {
     });
 }
 
-function requireLogin() {
+function requireLogin(redirectTo = getCurrentPage()) {
     if (localStorage.getItem("loggedInUser")) {
         return true;
     }
 
-    window.location.href = "login.html";
+    const redirect = isSafeLocalRedirect(redirectTo) ? redirectTo : "index.html";
+    sessionStorage.setItem("loginRedirect", redirect);
+    window.location.href = "login.html?redirect=" + encodeURIComponent(redirect);
     return false;
 }
 
@@ -841,6 +930,7 @@ function loadCart() {
     const container = document.getElementById("cartItems");
     let total = 0;
 
+    restoreCheckoutDetails();
     container.innerHTML = "";
 
     if (cart.length === 0) {
@@ -872,6 +962,7 @@ function loadCart() {
 
     document.getElementById("total").innerText = "Total: " + money(total);
     updateOrderSummary();
+    resumePendingCheckout();
 }
 
 function removeItem(index) {
@@ -948,18 +1039,66 @@ function getCheckoutDetails() {
         name: document.getElementById("userName").value.trim() || savedUser || "",
         phone: document.getElementById("phone").value.trim(),
         address: document.getElementById("address").value.trim(),
+        state: document.getElementById("state").value.trim(),
+        district: document.getElementById("district").value.trim(),
+        buildingStreet: document.getElementById("buildingStreet").value.trim(),
+        pincode: document.getElementById("pincode").value.trim(),
         customization: document.getElementById("customization").value.trim() || "None",
         deliveryNote: document.getElementById("deliveryNote").value.trim() || "None"
     };
 }
 
+function saveCheckoutDetails(details) {
+    sessionStorage.setItem("pendingCheckoutDetails", JSON.stringify(details));
+}
+
+function restoreCheckoutDetails() {
+    const savedDetails = sessionStorage.getItem("pendingCheckoutDetails");
+    if (!savedDetails) return;
+
+    try {
+        const details = JSON.parse(savedDetails);
+        const fields = {
+            userName: details.name,
+            phone: details.phone,
+            address: details.address,
+            state: details.state,
+            district: details.district,
+            buildingStreet: details.buildingStreet,
+            pincode: details.pincode,
+            customization: details.customization === "None" ? "" : details.customization,
+            deliveryNote: details.deliveryNote === "None" ? "" : details.deliveryNote
+        };
+
+        Object.entries(fields).forEach(([id, value]) => {
+            const field = document.getElementById(id);
+            if (field && value) field.value = value;
+        });
+    } catch (error) {
+        sessionStorage.removeItem("pendingCheckoutDetails");
+    }
+}
+
+function resumePendingCheckout() {
+    if (!sessionStorage.getItem("pendingCheckout") || !localStorage.getItem("loggedInUser")) return;
+
+    sessionStorage.removeItem("pendingCheckout");
+    const checkoutMsg = document.getElementById("checkoutMsg");
+    if (checkoutMsg) checkoutMsg.innerText = "Login successful. Opening WhatsApp checkout...";
+    setTimeout(() => checkout(), 400);
+}
+
 function validateCheckout(details) {
-    if (!details.name || !details.phone || !details.address) {
-        return "Name, phone number, and address are required.";
+    if (!details.name || !details.phone || !details.address || !details.state || !details.district || !details.buildingStreet || !details.pincode) {
+        return "Name, phone number, address, state, district, building/street, and pincode are required.";
     }
 
     if (details.phone.replace(/\D/g, "").length < 10) {
         return "Enter a valid phone number.";
+    }
+
+    if (details.pincode.replace(/\D/g, "").length !== 6) {
+        return "Enter a valid 6-digit pincode.";
     }
 
     return "";
@@ -989,9 +1128,17 @@ function checkout() {
         return;
     }
 
+    if (!localStorage.getItem("loggedInUser")) {
+        saveCheckoutDetails(details);
+        sessionStorage.setItem("pendingCheckout", "true");
+        requireLogin("cart.html");
+        return;
+    }
+
     const offer = localStorage.getItem("offer") || "No offer";
     let message = "Hi, I want to order from SmartOrnaments.\n\n";
     message += `Customer Details\nName: ${details.name}\nPhone: ${details.phone}\nAddress: ${details.address}\n`;
+    message += `State: ${details.state}\nDistrict: ${details.district}\nBuilding No & Street Name: ${details.buildingStreet}\nPincode: ${details.pincode}\n`;
     message += `Customization: ${details.customization}\nDelivery Note: ${details.deliveryNote}\n\nItems\n`;
 
     cart.forEach((item, i) => {
@@ -1038,6 +1185,8 @@ function finishCheckout(order, baseMessage) {
     localStorage.setItem("lastOrderId", order.id);
     window.open(`https://wa.me/919344586609?text=${encodeURIComponent(message)}`, "_blank");
     localStorage.removeItem("cart");
+    sessionStorage.removeItem("pendingCheckout");
+    sessionStorage.removeItem("pendingCheckoutDetails");
     updateCartCount();
     window.location.href = "success.html";
 }
@@ -1249,6 +1398,10 @@ async function loadAdminOrders() {
                 <p><b>Customer:</b> ${order.customer?.name || "Customer"}</p>
                 <p><b>Phone:</b> ${order.customer?.phone || "Not provided"}</p>
                 <p><b>Address:</b> ${order.customer?.address || "Not provided"}</p>
+                <p><b>State:</b> ${order.customer?.state || "Not provided"}</p>
+                <p><b>District:</b> ${order.customer?.district || "Not provided"}</p>
+                <p><b>Building No & Street Name:</b> ${order.customer?.buildingStreet || "Not provided"}</p>
+                <p><b>Pincode:</b> ${order.customer?.pincode || "Not provided"}</p>
                 <p><b>Customization:</b> ${order.customer?.customization || "None"}</p>
                 <p><b>Delivery Note:</b> ${order.customer?.deliveryNote || "None"}</p>
                 ${itemsHTML}
