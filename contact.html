@@ -6,7 +6,7 @@
     <title>Contact - SmartOrnaments</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
-<body onload="showUser(); updateCartCount();">
+<body onload="initContactPage();">
     <nav>
         <h2 class="brand">
             <img src="images/Logo.png" alt="SmartOrnaments logo" class="brand-logo">
@@ -27,13 +27,41 @@
         <h2>Contact Us</h2>
         <p>Have questions? Reach us directly.</p>
 
-        <br>
+        <form id="contactForm" class="contact-form" onsubmit="submitContactForm(event)">
+            <label>
+                Name
+                <input type="text" id="contactName" placeholder="Your name">
+            </label>
+            <label>
+                Email
+                <input type="email" id="contactEmail" placeholder="Email address">
+            </label>
+            <label>
+                Phone
+                <input type="tel" id="contactPhone" placeholder="Phone number">
+            </label>
+            <label>
+                Subject
+                <select id="contactSubject">
+                    <option value="Custom order">Custom order</option>
+                    <option value="Order support">Order support</option>
+                    <option value="Product question">Product question</option>
+                    <option value="General message">General message</option>
+                </select>
+            </label>
+            <label>
+                Message
+                <textarea id="contactMessage" placeholder="Tell us what you need"></textarea>
+            </label>
+            <p id="contactMsg" class="form-message"></p>
+            <button type="submit">Send Message</button>
+        </form>
 
         <a href="https://wa.me/916374118664" class="btn primary-btn">Chat on WhatsApp</a>
 
         <br><br>
 
-        <p>Email: dhasanya05061990@gmail.com</p>
+        <p>Email: smartornaments.shop@gmail.com</p>
         <p>Location: Karur</p>
     </section>
 

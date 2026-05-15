@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 
-<body onload="showUser(); renderProducts(); updateCartCount();">
+<body onload="showUser(); renderCategoryTiles(); renderProducts(); updateCartCount();">
 <nav>
     <h2 class="brand">
         <img src="images/Logo.png" alt="SmartOrnaments logo" class="brand-logo">
@@ -24,8 +24,16 @@
     <div id="userDisplay"></div>
 </nav>
 
+<section class="emotion category-section compact-category-section">
+    <div class="section-heading">
+        <h2>Browse Categories</h2>
+        <a href="products.html">Show all</a>
+    </div>
+    <div class="category-grid" data-category-tiles></div>
+</section>
+
 <section class="products">
-    <h2>All Products</h2>
+    <h2 id="collectionTitle">All Products</h2>
     <button onclick="clearEmotionFilter()" class="filter-reset">Show All Products</button>
     <input type="text" id="search" placeholder="Search products..." onkeyup="searchProduct()">
 

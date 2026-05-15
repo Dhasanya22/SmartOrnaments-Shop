@@ -11,6 +11,910 @@ function getFieldValue(id) {
     return field ? field.value.trim() : "";
 }
 
+const indianStateDistricts = {
+    "Andaman and Nicobar Islands": [
+        "Nicobars",
+        "North And Middle Andaman",
+        "South Andamans"
+    ],
+    "Andhra Pradesh": [
+        "Alluri Sitharama Raju",
+        "Anakapalli",
+        "Ananthapuramu",
+        "Annamayya",
+        "Bapatla",
+        "Chittoor",
+        "Dr. B.R. Ambedkar Konaseema",
+        "East Godavari",
+        "Eluru",
+        "Guntur",
+        "Kakinada",
+        "Krishna",
+        "Kurnool",
+        "Markapuram",
+        "Nandyal",
+        "Ntr",
+        "Palnadu",
+        "Parvathipuram Manyam",
+        "Polavaram",
+        "Prakasam",
+        "Sri Potti Sriramulu Nellore",
+        "Sri Sathya Sai",
+        "Srikakulam",
+        "Tirupati",
+        "Visakhapatnam",
+        "Vizianagaram",
+        "West Godavari",
+        "Y.S.R. Kadapa"
+    ],
+    "Arunachal Pradesh": [
+        "Anjaw",
+        "Bichom",
+        "Changlang",
+        "Dibang Valley",
+        "East Kameng",
+        "East Siang",
+        "Kamle",
+        "Keyi Panyor",
+        "Kra Daadi",
+        "Kurung Kumey",
+        "Leparada",
+        "Lohit",
+        "Longding",
+        "Lower Dibang Valley",
+        "Lower Siang",
+        "Lower Subansiri",
+        "Namsai",
+        "Pakke Kessang",
+        "Papum Pare",
+        "Shi Yomi",
+        "Siang",
+        "Tawang",
+        "Tirap",
+        "Upper Siang",
+        "Upper Subansiri",
+        "West Kameng",
+        "West Siang"
+    ],
+    "Assam": [
+        "Bajali",
+        "Baksa",
+        "Barpeta",
+        "Biswanath",
+        "Bongaigaon",
+        "Cachar",
+        "Charaideo",
+        "Chirang",
+        "Darrang",
+        "Dhemaji",
+        "Dhubri",
+        "Dibrugarh",
+        "Dima Hasao",
+        "Goalpara",
+        "Golaghat",
+        "Hailakandi",
+        "Hojai",
+        "Jorhat",
+        "Kamrup",
+        "Kamrup Metro",
+        "Karbi Anglong",
+        "Kokrajhar",
+        "Lakhimpur",
+        "Majuli",
+        "Marigaon",
+        "Nagaon",
+        "Nalbari",
+        "Sivasagar",
+        "Sonitpur",
+        "South Salmara Mancachar",
+        "Sribhumi",
+        "Tamulpur",
+        "Tinsukia",
+        "Udalguri",
+        "West Karbi Anglong"
+    ],
+    "Bihar": [
+        "Araria",
+        "Arwal",
+        "Aurangabad",
+        "Banka",
+        "Begusarai",
+        "Bhagalpur",
+        "Bhojpur",
+        "Buxar",
+        "Darbhanga",
+        "Gaya",
+        "Gopalganj",
+        "Jamui",
+        "Jehanabad",
+        "Kaimur (Bhabua)",
+        "Katihar",
+        "Khagaria",
+        "Kishanganj",
+        "Lakhisarai",
+        "Madhepura",
+        "Madhubani",
+        "Munger",
+        "Muzaffarpur",
+        "Nalanda",
+        "Nawada",
+        "Pashchim Champaran",
+        "Patna",
+        "Purbi Champaran",
+        "Purnia",
+        "Rohtas",
+        "Saharsa",
+        "Samastipur",
+        "Saran",
+        "Sheikhpura",
+        "Sheohar",
+        "Sitamarhi",
+        "Siwan",
+        "Supaul",
+        "Vaishali"
+    ],
+    "Chandigarh": [
+        "Chandigarh"
+    ],
+    "Chhattisgarh": [
+        "Balod",
+        "Balodabazar-Bhatapara",
+        "Balrampur-Ramanujganj",
+        "Bastar",
+        "Bemetara",
+        "Bijapur",
+        "Bilaspur",
+        "Dakshin Bastar Dantewada",
+        "Dhamtari",
+        "Durg",
+        "Gariyaband",
+        "Gaurela-Pendra-Marwahi",
+        "Janjgir-Champa",
+        "Jashpur",
+        "Kabeerdham",
+        "Khairagarh-Chhuikhadan-Gandai",
+        "Kondagaon",
+        "Korba",
+        "Korea",
+        "Mahasamund",
+        "Manendragarh-Chirmiri-Bharatpur(M C B)",
+        "Mohla-Manpur-Ambagarh Chouki",
+        "Mungeli",
+        "Narayanpur",
+        "Raigarh",
+        "Raipur",
+        "Rajnandgaon",
+        "Sakti",
+        "Sarangarh-Bilaigarh",
+        "Sukma",
+        "Surajpur",
+        "Surguja",
+        "Uttar Bastar Kanker"
+    ],
+    "Dadra and Nagar Haveli and Daman and Diu": [
+        "Dadra And Nagar Haveli",
+        "Daman",
+        "Diu"
+    ],
+    "Delhi": [
+        "Central",
+        "Central North",
+        "East",
+        "New Delhi",
+        "North",
+        "North East",
+        "North West",
+        "Old Delhi",
+        "Outer North",
+        "South",
+        "South East",
+        "South West",
+        "West"
+    ],
+    "Goa": [
+        "Kushavati",
+        "North Goa",
+        "South Goa"
+    ],
+    "Gujarat": [
+        "Ahmedabad",
+        "Amreli",
+        "Anand",
+        "Arvalli",
+        "Banas Kantha",
+        "Bharuch",
+        "Bhavnagar",
+        "Botad",
+        "Chhotaudepur",
+        "Dahod",
+        "Dangs",
+        "Devbhumi Dwarka",
+        "Gandhinagar",
+        "Gir Somnath",
+        "Jamnagar",
+        "Junagadh",
+        "Kachchh",
+        "Kheda",
+        "Mahesana",
+        "Mahisagar",
+        "Morbi",
+        "Narmada",
+        "Navsari",
+        "Panch Mahals",
+        "Patan",
+        "Porbandar",
+        "Rajkot",
+        "Sabar Kantha",
+        "Surat",
+        "Surendranagar",
+        "Tapi",
+        "Vadodara",
+        "Valsad",
+        "Vav-Tharad"
+    ],
+    "Haryana": [
+        "Ambala",
+        "Bhiwani",
+        "Charkhi Dadri",
+        "Faridabad",
+        "Fatehabad",
+        "Gurugram",
+        "Hansi",
+        "Hisar",
+        "Jhajjar",
+        "Jind",
+        "Kaithal",
+        "Karnal",
+        "Kurukshetra",
+        "Mahendragarh",
+        "Nuh",
+        "Palwal",
+        "Panchkula",
+        "Panipat",
+        "Rewari",
+        "Rohtak",
+        "Sirsa",
+        "Sonipat",
+        "Yamunanagar"
+    ],
+    "Himachal Pradesh": [
+        "Bilaspur",
+        "Chamba",
+        "Hamirpur",
+        "Kangra",
+        "Kinnaur",
+        "Kullu",
+        "Lahaul And Spiti",
+        "Mandi",
+        "Shimla",
+        "Sirmaur",
+        "Solan",
+        "Una"
+    ],
+    "Jammu and Kashmir": [
+        "Anantnag",
+        "Bandipora",
+        "Baramulla",
+        "Budgam",
+        "Doda",
+        "Ganderbal",
+        "Jammu",
+        "Kathua",
+        "Kishtwar",
+        "Kulgam",
+        "Kupwara",
+        "Poonch",
+        "Pulwama",
+        "Rajouri",
+        "Ramban",
+        "Reasi",
+        "Samba",
+        "Shopian",
+        "Srinagar",
+        "Udhampur"
+    ],
+    "Jharkhand": [
+        "Bokaro",
+        "Chatra",
+        "Deoghar",
+        "Dhanbad",
+        "Dumka",
+        "East Singhbum",
+        "Garhwa",
+        "Giridih",
+        "Godda",
+        "Gumla",
+        "Hazaribagh",
+        "Jamtara",
+        "Khunti",
+        "Koderma",
+        "Latehar",
+        "Lohardaga",
+        "Pakur",
+        "Palamu",
+        "Ramgarh",
+        "Ranchi",
+        "Sahebganj",
+        "Saraikela Kharsawan",
+        "Simdega",
+        "West Singhbhum"
+    ],
+    "Karnataka": [
+        "Bagalkote",
+        "Ballari",
+        "Belagavi",
+        "Bengaluru Rural",
+        "Bengaluru South",
+        "Bengaluru Urban",
+        "Bidar",
+        "Chamarajanagar",
+        "Chikkaballapura",
+        "Chikkamagaluru",
+        "Chitradurga",
+        "Dakshina Kannada",
+        "Davanagere",
+        "Dharwad",
+        "Gadag",
+        "Hassan",
+        "Haveri",
+        "Kalaburagi",
+        "Kodagu",
+        "Kolar",
+        "Koppal",
+        "Mandya",
+        "Mysuru",
+        "Raichur",
+        "Shivamogga",
+        "Tumakuru",
+        "Udupi",
+        "Uttara Kannada",
+        "Vijayanagara",
+        "Vijayapura",
+        "Yadgir"
+    ],
+    "Kerala": [
+        "Alappuzha",
+        "Ernakulam",
+        "Idukki",
+        "Kannur",
+        "Kasaragod",
+        "Kollam",
+        "Kottayam",
+        "Kozhikode",
+        "Malappuram",
+        "Palakkad",
+        "Pathanamthitta",
+        "Thiruvananthapuram",
+        "Thrissur",
+        "Wayanad"
+    ],
+    "Ladakh": [
+        "Kargil",
+        "Leh Ladakh"
+    ],
+    "Lakshadweep": [
+        "Lakshadweep District"
+    ],
+    "Madhya Pradesh": [
+        "Agar-Malwa",
+        "Alirajpur",
+        "Anuppur",
+        "Ashoknagar",
+        "Balaghat",
+        "Barwani",
+        "Betul",
+        "Bhind",
+        "Bhopal",
+        "Burhanpur",
+        "Chhatarpur",
+        "Chhindwara",
+        "Damoh",
+        "Datia",
+        "Dewas",
+        "Dhar",
+        "Dindori",
+        "Guna",
+        "Gwalior",
+        "Harda",
+        "Indore",
+        "Jabalpur",
+        "Jhabua",
+        "Katni",
+        "Khandwa (East Nimar)",
+        "Khargone (West Nimar)",
+        "MAUGANJ",
+        "Maihar",
+        "Mandla",
+        "Mandsaur",
+        "Morena",
+        "Narmadapuram",
+        "Narsimhapur",
+        "Neemuch",
+        "Niwari",
+        "Pandhurna",
+        "Panna",
+        "Raisen",
+        "Rajgarh",
+        "Ratlam",
+        "Rewa",
+        "Sagar",
+        "Satna",
+        "Sehore",
+        "Seoni",
+        "Shahdol",
+        "Shajapur",
+        "Sheopur",
+        "Shivpuri",
+        "Sidhi",
+        "Singrauli",
+        "Tikamgarh",
+        "Ujjain",
+        "Umaria",
+        "Vidisha"
+    ],
+    "Maharashtra": [
+        "Ahilyanagar",
+        "Akola",
+        "Amravati",
+        "Beed",
+        "Bhandara",
+        "Buldhana",
+        "Chandrapur",
+        "Chhatrapati Sambhajinagar",
+        "Dharashiv",
+        "Dhule",
+        "Gadchiroli",
+        "Gondia",
+        "Hingoli",
+        "Jalgaon",
+        "Jalna",
+        "Kolhapur",
+        "Latur",
+        "Mumbai",
+        "Mumbai Suburban",
+        "Nagpur",
+        "Nanded",
+        "Nandurbar",
+        "Nashik",
+        "Palghar",
+        "Parbhani",
+        "Pune",
+        "Raigad",
+        "Ratnagiri",
+        "Sangli",
+        "Satara",
+        "Sindhudurg",
+        "Solapur",
+        "Thane",
+        "Wardha",
+        "Washim",
+        "Yavatmal"
+    ],
+    "Manipur": [
+        "Bishnupur",
+        "Chandel",
+        "Churachandpur",
+        "Imphal East",
+        "Imphal West",
+        "Jiribam",
+        "Kakching",
+        "Kamjong",
+        "Kangpokpi",
+        "Noney",
+        "Pherzawl",
+        "Senapati",
+        "Tamenglong",
+        "Tengnoupal",
+        "Thoubal",
+        "Ukhrul"
+    ],
+    "Meghalaya": [
+        "East Garo Hills",
+        "East Jaintia Hills",
+        "East Khasi Hills",
+        "Eastern West Khasi Hills",
+        "North Garo Hills",
+        "Ri Bhoi",
+        "South Garo Hills",
+        "South West Garo Hills",
+        "South West Khasi Hills",
+        "West Garo Hills",
+        "West Jaintia Hills",
+        "West Khasi Hills"
+    ],
+    "Mizoram": [
+        "Aizawl",
+        "Champhai",
+        "Hnahthial",
+        "Khawzawl",
+        "Kolasib",
+        "Lawngtlai",
+        "Lunglei",
+        "Mamit",
+        "Saitual",
+        "Serchhip",
+        "Siaha"
+    ],
+    "Nagaland": [
+        "Chumoukedima",
+        "Dimapur",
+        "Kiphire",
+        "Kohima",
+        "Longleng",
+        "Meluri",
+        "Mokokchung",
+        "Mon",
+        "Niuland",
+        "Noklak",
+        "Peren",
+        "Phek",
+        "Shamator",
+        "Tseminyu",
+        "Tuensang",
+        "Wokha",
+        "Zunheboto"
+    ],
+    "Odisha": [
+        "Angul",
+        "Balangir",
+        "Balasore",
+        "Bargarh",
+        "Bhadrak",
+        "Boudh",
+        "Cuttack",
+        "Deogarh",
+        "Dhenkanal",
+        "Gajapati",
+        "Ganjam",
+        "Jagatsinghapur",
+        "Jajpur",
+        "Jharsuguda",
+        "Kalahandi",
+        "Kandhamal",
+        "Kendrapara",
+        "Keonjhar",
+        "Khordha",
+        "Koraput",
+        "Malkangiri",
+        "Mayurbhanj",
+        "Nabarangpur",
+        "Nayagarh",
+        "Nuapada",
+        "Puri",
+        "Rayagada",
+        "Sambalpur",
+        "Sonepur",
+        "Sundargarh"
+    ],
+    "Puducherry": [
+        "Karaikal",
+        "Puducherry"
+    ],
+    "Punjab": [
+        "Amritsar",
+        "Barnala",
+        "Bathinda",
+        "Faridkot",
+        "Fatehgarh Sahib",
+        "Fazilka",
+        "Ferozepur",
+        "Gurdaspur",
+        "Hoshiarpur",
+        "Jalandhar",
+        "Kapurthala",
+        "Ludhiana",
+        "Malerkotla",
+        "Mansa",
+        "Moga",
+        "Pathankot",
+        "Patiala",
+        "Rupnagar",
+        "S.A.S Nagar",
+        "Sangrur",
+        "Shahid Bhagat Singh Nagar",
+        "Sri Muktsar Sahib",
+        "Tarn Taran"
+    ],
+    "Rajasthan": [
+        "Ajmer",
+        "Alwar",
+        "Balotra",
+        "Banswara",
+        "Baran",
+        "Barmer",
+        "Beawar",
+        "Bharatpur",
+        "Bhilwara",
+        "Bikaner",
+        "Bundi",
+        "Chittorgarh",
+        "Churu",
+        "Dausa",
+        "Deeg",
+        "Dholpur",
+        "Didwana-Kuchaman",
+        "Dungarpur",
+        "Ganganagar",
+        "Hanumangarh",
+        "Jaipur",
+        "Jaisalmer",
+        "Jalore",
+        "Jhalawar",
+        "Jhunjhunu",
+        "Jodhpur",
+        "Karauli",
+        "Khairthal-Tijara",
+        "Kota",
+        "Kotputli-Behror",
+        "Nagaur",
+        "Pali",
+        "Phalodi",
+        "Pratapgarh",
+        "Rajsamand",
+        "Salumbar",
+        "Sawai Madhopur",
+        "Sikar",
+        "Sirohi",
+        "Tonk",
+        "Udaipur"
+    ],
+    "Sikkim": [
+        "Gangtok",
+        "Gyalshing",
+        "Mangan",
+        "Namchi",
+        "Pakyong",
+        "Soreng"
+    ],
+    "Tamil Nadu": [
+        "Ariyalur",
+        "Chengalpattu",
+        "Chennai",
+        "Coimbatore",
+        "Cuddalore",
+        "Dharmapuri",
+        "Dindigul",
+        "Erode",
+        "Kallakurichi",
+        "Kancheepuram",
+        "Kanniyakumari",
+        "Karur",
+        "Krishnagiri",
+        "Madurai",
+        "Mayiladuthurai",
+        "Nagapattinam",
+        "Namakkal",
+        "Perambalur",
+        "Pudukkottai",
+        "Ramanathapuram",
+        "Ranipet",
+        "Salem",
+        "Sivaganga",
+        "Tenkasi",
+        "Thanjavur",
+        "The Nilgiris",
+        "Theni",
+        "Thiruvallur",
+        "Thiruvarur",
+        "Thoothukkudi",
+        "Tiruchirappalli",
+        "Tirunelveli",
+        "Tirupathur",
+        "Tiruppur",
+        "Tiruvannamalai",
+        "Vellore",
+        "Viluppuram",
+        "Virudhunagar"
+    ],
+    "Telangana": [
+        "Adilabad",
+        "Bhadradri Kothagudem",
+        "Hanumakonda",
+        "Hyderabad",
+        "Jagitial",
+        "Jangoan",
+        "Jayashankar Bhupalapally",
+        "Jogulamba Gadwal",
+        "Kamareddy",
+        "Karimnagar",
+        "Khammam",
+        "Kumuram Bheem Asifabad",
+        "Mahabubabad",
+        "Mahabubnagar",
+        "Mancherial",
+        "Medak",
+        "Medchal Malkajgiri",
+        "Mulugu",
+        "Nagarkurnool",
+        "Nalgonda",
+        "Narayanpet",
+        "Nirmal",
+        "Nizamabad",
+        "Peddapalli",
+        "Rajanna Sircilla",
+        "Ranga Reddy",
+        "Sangareddy",
+        "Siddipet",
+        "Suryapet",
+        "Vikarabad",
+        "Wanaparthy",
+        "Warangal",
+        "Yadadri Bhuvanagiri"
+    ],
+    "Tripura": [
+        "Dhalai",
+        "Gomati",
+        "Khowai",
+        "North Tripura",
+        "Sepahijala",
+        "South Tripura",
+        "Unakoti",
+        "West Tripura"
+    ],
+    "Uttar Pradesh": [
+        "Agra",
+        "Aligarh",
+        "Ambedkar Nagar",
+        "Amethi",
+        "Amroha",
+        "Auraiya",
+        "Ayodhya",
+        "Azamgarh",
+        "Baghpat",
+        "Bahraich",
+        "Ballia",
+        "Balrampur",
+        "Banda",
+        "Bara Banki",
+        "Bareilly",
+        "Basti",
+        "Bhadohi",
+        "Bijnor",
+        "Budaun",
+        "Bulandshahr",
+        "Chandauli",
+        "Chitrakoot",
+        "Deoria",
+        "Etah",
+        "Etawah",
+        "Farrukhabad",
+        "Fatehpur",
+        "Firozabad",
+        "Gautam Buddha Nagar",
+        "Ghaziabad",
+        "Ghazipur",
+        "Gonda",
+        "Gorakhpur",
+        "Hamirpur",
+        "Hapur",
+        "Hardoi",
+        "Hathras",
+        "Jalaun",
+        "Jaunpur",
+        "Jhansi",
+        "Kannauj",
+        "Kanpur Dehat",
+        "Kanpur Nagar",
+        "Kasganj",
+        "Kaushambi",
+        "Kheri",
+        "Kushinagar",
+        "Lalitpur",
+        "Lucknow",
+        "Mahoba",
+        "Mahrajganj",
+        "Mainpuri",
+        "Mathura",
+        "Mau",
+        "Meerut",
+        "Mirzapur",
+        "Moradabad",
+        "Muzaffarnagar",
+        "Pilibhit",
+        "Pratapgarh",
+        "Prayagraj",
+        "Rae Bareli",
+        "Rampur",
+        "Saharanpur",
+        "Sambhal",
+        "Sant Kabir Nagar",
+        "Shahjahanpur",
+        "Shamli",
+        "Shrawasti",
+        "Siddharthnagar",
+        "Sitapur",
+        "Sonbhadra",
+        "Sultanpur",
+        "Unnao",
+        "Varanasi"
+    ],
+    "Uttarakhand": [
+        "Almora",
+        "Bageshwar",
+        "Chamoli",
+        "Champawat",
+        "Dehradun",
+        "Haridwar",
+        "Nainital",
+        "Pauri Garhwal",
+        "Pithoragarh",
+        "Rudraprayag",
+        "Tehri Garhwal",
+        "Udham Singh Nagar",
+        "Uttarkashi"
+    ],
+    "West Bengal": [
+        "Alipurduar",
+        "Bankura",
+        "Birbhum",
+        "Cooch Behar",
+        "Dakshin Dinajpur",
+        "Darjeeling",
+        "Hooghly",
+        "Howrah",
+        "Jalpaiguri",
+        "Jhargram",
+        "Kalimpong",
+        "Kolkata",
+        "Malda",
+        "Murshidabad",
+        "Nadia",
+        "North 24 Parganas",
+        "Paschim Bardhaman",
+        "Paschim Medinipur",
+        "Purba Bardhaman",
+        "Purba Medinipur",
+        "Purulia",
+        "South 24 Parganas",
+        "Uttar Dinajpur"
+    ]
+};
+
+function setSelectOptions(select, options, placeholder, selectedValue = "") {
+    if (!select) return;
+
+    select.innerHTML = "";
+    select.appendChild(new Option(placeholder, ""));
+
+    options.forEach(option => {
+        select.appendChild(new Option(option, option));
+    });
+
+    if (selectedValue && !options.includes(selectedValue)) {
+        select.appendChild(new Option(selectedValue, selectedValue));
+    }
+
+    select.value = selectedValue || "";
+}
+
+function populateStateOptions(selectedState = "") {
+    const stateSelect = document.getElementById("state");
+    if (!stateSelect) return;
+
+    setSelectOptions(stateSelect, Object.keys(indianStateDistricts), "Select state", selectedState);
+}
+
+function populateDistrictOptions(state = getFieldValue("state"), selectedDistrict = "") {
+    const districtSelect = document.getElementById("district");
+    if (!districtSelect) return;
+
+    const districts = indianStateDistricts[state] || [];
+    const placeholder = state ? "Select district" : "Select state first";
+
+    setSelectOptions(districtSelect, districts, placeholder, selectedDistrict);
+    districtSelect.disabled = !state && !selectedDistrict;
+}
+
+function initLocationDropdowns(selectedState = getFieldValue("state"), selectedDistrict = getFieldValue("district")) {
+    populateStateOptions(selectedState);
+    populateDistrictOptions(selectedState || getFieldValue("state"), selectedDistrict);
+}
+
+function handleStateChange() {
+    populateDistrictOptions(getFieldValue("state"));
+    updateOrderSummary();
+}
+
 function titleFromValue(value) {
     const labels = {
         friend: "Friend",
@@ -66,6 +970,41 @@ function getDirectOrderDetails() {
 }
 
 const useBackend = location.protocol === "http:" || location.protocol === "https:";
+const adminEmail = "smartornaments.shop@gmail.com";
+const ownerEmail = "smartornaments.shop@gmail.com";
+const legacyAdminUsername = "admin";
+const orderStatuses = ["Pending", "Making", "Shipped", "Delivered"];
+const festivalCollections = {
+    birthday: {
+        title: "Birthday Collection",
+        types: ["bracelet", "keychain", "name-board-fridge-magnet", "resin-work"],
+        keywords: ["birthday", "name", "custom", "photo", "gift"]
+    },
+    anniversary: {
+        title: "Anniversary Collection",
+        types: ["bracelet", "resin-work", "name-board-fridge-magnet"],
+        keywords: ["anniversary", "love", "couple", "date", "resin"]
+    },
+    "friendship-day": {
+        title: "Friendship Day Collection",
+        types: ["bracelet", "keychain", "thread-work-bangle-earrings"],
+        keywords: ["friend", "friendship", "band", "keychain", "bracelet"]
+    },
+    "valentines-day": {
+        title: "Valentine's Day Collection",
+        types: ["bracelet", "keychain", "resin-work"],
+        keywords: ["valentine", "love", "romantic", "heart", "rose"]
+    }
+};
+const orderPhotoStorage = {
+    product: null,
+    checkout: null
+};
+
+function isAdminLoginId(value) {
+    const login = String(value || "").toLowerCase();
+    return login === adminEmail || login === legacyAdminUsername;
+}
 
 async function apiRequest(path, options = {}) {
     const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
@@ -85,7 +1024,16 @@ async function apiRequest(path, options = {}) {
 
 function isApiUnavailableError(error) {
     return error instanceof TypeError
-        || ["API route not found", "Request failed", "Failed to fetch"].includes(error.message);
+        || [
+            "API route not found",
+            "Request failed",
+            "Failed to fetch",
+            "Product request failed",
+            "Order request failed",
+            "User request failed",
+            "Contact request failed",
+            "Notification request failed"
+        ].includes(error.message);
 }
 
 function getCustomerKey() {
@@ -93,46 +1041,323 @@ function getCustomerKey() {
     return user ? user.toLowerCase() : "guest";
 }
 
-const defaultProducts = [
+const productCategories = [
     {
-        id: "rose-keychain",
-        name: "Rose Keychain",
-        price: 99,
-        image: "images/Keychain.jpeg",
-        type: "love",
-        description: "A personalized keychain for simple, sweet gifting.",
-        featured: true
+        value: "bracelet",
+        label: "Charm Bracelets",
+        image: "images/Braclet/Braclet with Charm.jpg",
+        description: "Handmade wrist candy with names, charms, and gift-ready sparkle.",
+        gallery: [
+            "images/Braclet/Braclet.jpg",
+            "images/Braclet/Braclet (2).jpg",
+            "images/Braclet/Braclet (3).jpg",
+            "images/Braclet/Braclet (4).jpg",
+            "images/Braclet/Braclet with Charm.jpg",
+            "images/Braclet/Braclet with Charm (2).jpg",
+            "images/Braclet/Braclet with Charm (3).jpg",
+            "images/Braclet/Braclet with Charm (4).jpg",
+            "images/Braclet/Braclet with Charm (5).jpg",
+            "images/Braclet/Braclet with Charm (6).jpg",
+            "images/Braclet/Braclet with Charm (7).jpg",
+            "images/Braclet/Braclet with Charm (8).jpg",
+            "images/Braclet/Braclet with Charm (9).jpg",
+            "images/Braclet/Braclet with Charm (10).jpg",
+            "images/Braclet/Braclet with Charm (11).jpg",
+            "images/Braclet/Braclet with Charm (12).jpg",
+            "images/Braclet/Chain Braclet.jpg",
+            "images/Braclet/Couple Braclet.jpg",
+            "images/Braclet/Fairy Kada.jpg"
+        ]
     },
     {
-        id: "bracelet-gift",
-        name: "Bracelet Gift",
-        price: 199,
-        image: "images/Braclet.jpeg",
-        type: "birthday",
-        description: "A neat bracelet gift for birthdays and special days.",
-        featured: true
+        value: "resin-work",
+        label: "Resin Frames",
+        image: "images/Resin Frame Work/Resin Frame.jpg",
+        description: "Glossy keepsake frames that lock your favorite memories in color.",
+        gallery: [
+            "images/Resin Frame Work/Resin Frame.jpg",
+            "images/Resin Frame Work/Resin Frame (2).jpg",
+            "images/Resin Frame Work/Resin Frame (3).jpg",
+            "images/Resin Frame Work/Resin Frame (4).jpg",
+            "images/Resin Frame Work/Resin Frame(3).jpg",
+            "images/Resin Frame Work/Resin Frame(4).jpg"
+        ]
     },
     {
-        id: "name-keychain",
-        name: "Name Keychain",
-        price: 149,
-        image: "images/Keychain.jpeg",
-        type: "friend",
-        description: "A custom name keychain for friends and keepsakes.",
-        featured: false
+        value: "name-board-fridge-magnet",
+        label: "Name Boards & Magnets",
+        image: "images/Resin Frame Work/Resin Name Board.jpg",
+        description: "Personalized name boards and fridge magnets with a sweet handmade finish.",
+        gallery: [
+            "images/Resin Frame Work/Resin Name Board.jpg"
+        ]
+    },
+    {
+        value: "keychain",
+        label: "Resin Keychains",
+        image: "images/Resin Keychain/Resin Transparent Keychain.jpg",
+        description: "Tiny daily keepsakes with names, initials, flowers, and color pop.",
+        gallery: [
+            "images/Resin Keychain/Resin Dual Color Keychain.jpg",
+            "images/Resin Keychain/Resin Dual Color Keychain (2).jpg",
+            "images/Resin Keychain/Resin Dual Color Keychain (3).jpg",
+            "images/Resin Keychain/Resin Dual Color Keychain (4).jpg",
+            "images/Resin Keychain/Resin Monocolor Keychain.jpg",
+            "images/Resin Keychain/Resin Transparent Keychain.jpg",
+            "images/Resin Keychain/Resin Transparent Keychain (2).jpg",
+            "images/Resin Keychain/Resin Transparent Keychain (3).jpg",
+            "images/Resin Keychain/Resin Transparent Keychain (4).jpg",
+            "images/Resin Keychain/Resin Transparent Keychain (5).jpg",
+            "images/Resin Keychain/Resin Transparent Keychain (6).jpg",
+            "images/Resin Keychain/Resin Transparent Keychain (7).jpg",
+            "images/Resin Keychain/Resin Transparent Keychain (8).jpg",
+            "images/Resin Keychain/Resin Transparent Keychain (9).jpg",
+            "images/Resin Keychain/Resin Tricolor Keychain.jpg",
+            "images/Resin Keychain/Resin Tricolor Keychain (2).jpg"
+        ]
+    },
+    {
+        value: "hair-accessories",
+        label: "Hair Accessories",
+        image: "images/Accessories/Centre Clip.jpg",
+        description: "Cute clips and bands that make everyday styling feel special.",
+        gallery: [
+            "images/Accessories/Alligator Clip.jpg",
+            "images/Accessories/Centre Clip.jpg",
+            "images/Accessories/Hair Band .jpg"
+        ]
+    },
+    {
+        value: "thread-work-bangle-earrings",
+        label: "Bangles & Earrings",
+        image: "images/Accessories/Resin Transparent Earrings.jpg",
+        description: "Lightweight statement pieces made for festive looks and quick gifts.",
+        gallery: [
+            "images/Accessories/Neck Chain + Braclet.jpg",
+            "images/Accessories/Neck Chain.jpg",
+            "images/Accessories/Resin Transparent Earrings.jpg"
+        ]
     }
 ];
+
+const categoryImageMap = productCategories.reduce((map, category) => {
+    map[category.value] = category.image;
+    return map;
+}, {});
+
+const legacyProductImages = {
+    "images/keychain.jpeg": categoryImageMap.keychain,
+    "images/braclet.jpeg": categoryImageMap.bracelet,
+    "images/bracelet.jpeg": categoryImageMap.bracelet
+};
+
+const legacyProductDescriptions = {
+    "rose-keychain": "A glossy resin keychain that turns names, initials, or tiny memories into an everyday favorite.",
+    "bracelet-gift": "A handmade bracelet with a neat finish, ready to make birthdays and friendship days feel personal.",
+    "name-keychain": "A custom name keychain with clean lettering, bright resin, and a keepsake feel.",
+    "custom-bracelet": "A made-for-you bracelet with colors, charms, and details that match the person wearing it."
+};
+
+const categoryDefaultPrices = {
+    bracelet: 199,
+    "resin-work": 499,
+    "name-board-fridge-magnet": 599,
+    keychain: 149,
+    "hair-accessories": 129,
+    "thread-work-bangle-earrings": 159
+};
+
+const categoryOccasions = {
+    bracelet: ["birthday", "anniversary", "friendship-day", "valentines-day"],
+    "resin-work": ["birthday", "anniversary", "valentines-day"],
+    "name-board-fridge-magnet": ["birthday", "anniversary"],
+    keychain: ["birthday", "friendship-day", "valentines-day"],
+    "hair-accessories": ["birthday", "friendship-day"],
+    "thread-work-bangle-earrings": ["birthday", "friendship-day", "valentines-day"]
+};
+
+function nameFromImagePath(image) {
+    return String(image || "")
+        .split("/")
+        .pop()
+        .replace(/\.[^.]+$/, "")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+function slugFromText(value) {
+    return String(value || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "");
+}
+
+function productsFromCategoryImages() {
+    return productCategories.flatMap(category => {
+        const images = category.gallery || [category.image];
+
+        return images.map((image, index) => {
+            const name = nameFromImagePath(image);
+
+            return {
+                id: `${category.value}-${slugFromText(name)}-${index + 1}`,
+                name,
+                price: categoryDefaultPrices[category.value] || 149,
+                image,
+                images: [image],
+                type: category.value,
+                description: `${category.description} Choose the ${name} design and personalize it your way.`,
+                featured: index === 0,
+                occasions: categoryOccasions[category.value] || ["birthday"]
+            };
+        });
+    });
+}
+
+const defaultProducts = productsFromCategoryImages();
+
+function productCategoryData(value) {
+    return productCategories.find(item => item.value === value);
+}
+
+function productCategoryLabel(value) {
+    const category = productCategoryData(value);
+    return category ? category.label : value || "Product";
+}
+
+function productCategoryDescription(value) {
+    return productCategoryData(value)?.description || "Handmade keepsakes designed for personal gifting.";
+}
+
+function productCategoryImage(value) {
+    return productCategoryData(value)?.image || "images/Logo.png";
+}
+
+function productTypeValue(product) {
+    const type = product?.type || "";
+
+    if (productCategories.some(category => category.value === type)) {
+        return type;
+    }
+
+    const name = String(product?.name || "").toLowerCase();
+
+    if (name.includes("bracelet")) return "bracelet";
+    if (name.includes("resin")) return "resin-work";
+    if (name.includes("magnet") || name.includes("name board")) return "name-board-fridge-magnet";
+    if (name.includes("hair")) return "hair-accessories";
+    if (name.includes("bangle") || name.includes("earring")) return "thread-work-bangle-earrings";
+
+    return "keychain";
+}
+
+function productFestivalValues(product) {
+    const explicit = Array.isArray(product?.occasions)
+        ? product.occasions.map(item => String(item || "").trim()).filter(Boolean)
+        : [];
+    const inferred = Object.keys(festivalCollections).filter(key => productMatchesFestival(product, key));
+
+    return Array.from(new Set([...explicit, ...inferred]));
+}
+
+function productMatchesFestival(product, festivalKey) {
+    const collection = festivalCollections[festivalKey];
+    if (!collection) return true;
+
+    const explicit = Array.isArray(product?.occasions)
+        ? product.occasions.map(item => String(item || "").trim())
+        : [];
+
+    if (explicit.includes(festivalKey)) return true;
+
+    const type = productTypeValue(product);
+    const haystack = [
+        product?.name,
+        product?.description,
+        productCategoryLabel(type)
+    ].join(" ").toLowerCase();
+    const hasKeyword = collection.keywords.some(keyword => haystack.includes(keyword));
+
+    return hasKeyword || collection.types.includes(type);
+}
+
+function normalizeProductImage(image, type) {
+    const cleanImage = String(image || "").trim();
+    const legacyImage = legacyProductImages[cleanImage.toLowerCase()];
+
+    if (legacyImage) {
+        return legacyImage;
+    }
+
+    return cleanImage || productCategoryImage(type);
+}
+
+function productImages(product) {
+    const type = productTypeValue(product);
+    const rawImages = [
+        product?.image,
+        ...(Array.isArray(product?.images) ? product.images : [])
+    ];
+    const images = [];
+
+    rawImages.forEach(image => {
+        image = normalizeProductImage(image, type);
+
+        if (image && !images.includes(image) && images.length < 10) {
+            images.push(image);
+        }
+    });
+
+    return images.length ? images : [productCategoryImage(type)];
+}
+
+function productDescription(product) {
+    const id = String(product?.id || "").trim();
+    const description = String(product?.description || "").trim();
+
+    return legacyProductDescriptions[id] || description || productCategoryDescription(productTypeValue(product));
+}
+
+function renderCategoryTiles() {
+    const containers = document.querySelectorAll("[data-category-tiles]");
+    if (!containers.length) return;
+
+    const tiles = productCategories.map(category => `
+        <button type="button" class="category-card" onclick="filterEmotion('${quote(category.value)}')">
+            <img src="${category.image}" alt="${escapeHtml(category.label)}" loading="lazy">
+            <span>${escapeHtml(category.label)}</span>
+            <small>${escapeHtml(category.description)}</small>
+        </button>
+    `).join("");
+
+    containers.forEach(container => {
+        container.innerHTML = tiles;
+    });
+}
 
 function getProducts() {
     const savedProducts = localStorage.getItem("products");
     if (!savedProducts) return defaultProducts;
 
-    const products = JSON.parse(savedProducts);
-    return Array.isArray(products) ? products : defaultProducts;
+    try {
+        const products = JSON.parse(savedProducts);
+        return Array.isArray(products) ? products : defaultProducts;
+    } catch (error) {
+        localStorage.removeItem("products");
+        return defaultProducts;
+    }
 }
 
 async function getProductsData() {
     if (useBackend) {
+        try {
+            const data = await phpProductRequest("products.php");
+            saveProducts(data.products);
+            return data.products;
+        } catch (error) {
+            console.warn(error.message);
+        }
+
         try {
             const data = await apiRequest("/api/products");
             saveProducts(data.products);
@@ -147,6 +1372,89 @@ async function getProductsData() {
 
 function saveProducts(products) {
     localStorage.setItem("products", JSON.stringify(products));
+}
+
+async function phpJsonRequest(path, options = {}, fallbackError = "Request failed") {
+    const headers = { ...(options.headers || {}) };
+
+    if (options.body && !headers["Content-Type"]) {
+        headers["Content-Type"] = "application/json";
+    }
+
+    const response = await fetch(path, { ...options, headers, credentials: "same-origin" });
+    const contentType = (response.headers.get("Content-Type") || "").toLowerCase();
+    const isJson = contentType.includes("application/json");
+
+    if (!isJson) {
+        throw new Error("Request failed");
+    }
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || data.success === false) {
+        const isHtml404 = response.status === 404 && contentType.includes("text/html");
+        throw new Error(isHtml404 ? "Request failed" : data.error || fallbackError);
+    }
+
+    if (data.success !== true) {
+        throw new Error(fallbackError);
+    }
+
+    return data;
+}
+
+async function phpProductRequest(path, options = {}) {
+    const data = await phpJsonRequest(path, options, "Product request failed");
+
+    if (!Array.isArray(data.products) && !data.product) {
+        throw new Error("Product request failed");
+    }
+
+    return data;
+}
+
+async function phpOrderRequest(path, options = {}) {
+    const data = await phpJsonRequest(path, options, "Order request failed");
+
+    if (!Array.isArray(data.orders) && !data.order) {
+        throw new Error("Order request failed");
+    }
+
+    return data;
+}
+
+async function phpContactRequest(path, options = {}) {
+    const data = await phpJsonRequest(path, options, "Contact request failed");
+
+    if (!data.contact) {
+        throw new Error("Contact request failed");
+    }
+
+    return data;
+}
+
+async function phpNotificationsRequest(path, options = {}) {
+    const data = await phpJsonRequest(path, options, "Notification request failed");
+
+    if (!Array.isArray(data.notifications) && !data.notification) {
+        throw new Error("Notification request failed");
+    }
+
+    return data;
+}
+
+async function phpUsersRequest(path, options = {}) {
+    const data = await phpJsonRequest(path, options, "User request failed");
+
+    if (!Array.isArray(data.users)) {
+        throw new Error("User request failed");
+    }
+
+    return data;
+}
+
+async function phpStatsRequest(path, options = {}) {
+    return phpJsonRequest(path, options, "Stats request failed");
 }
 
 function makeProductId(name) {
@@ -167,9 +1475,18 @@ function quote(value) {
 }
 
 function productCard(product, options = {}) {
-    const orderButton = options.orderAddsToCart
-        ? `<button onclick="addToCart('${quote(product.name)}', ${product.price})">Order</button>`
-        : `<button onclick="orderNow('${quote(product.name)}', ${product.price})">Order</button>`;
+    const images = productImages(product);
+    const photoCount = images.length;
+    const typeValue = productTypeValue(product);
+    const description = productDescription(product);
+    const festivals = productFestivalValues(product).join(" ");
+    const displayName = escapeHtml(product.name || "Product");
+    const categoryLabel = escapeHtml(productCategoryLabel(typeValue));
+    const descriptionText = escapeHtml(description);
+    const orderButton = `<button onclick="orderNow('${quote(product.name)}', ${product.price})">Order</button>`;
+    const customizeButton = options.admin
+        ? ""
+        : `<button onclick="openProduct('${quote(product.id)}')">Customize</button>`;
     const addCartButton = options.hideCart
         ? ""
         : `<button onclick="addToCart('${quote(product.name)}', ${product.price})">Add to Cart</button>`;
@@ -181,12 +1498,15 @@ function productCard(product, options = {}) {
         : "";
 
     return `
-        <div class="card" data-type="${product.type}">
-            <img src="${product.image}" alt="${product.name}">
-            <h3 onclick="openProduct('${quote(product.id)}')">${product.name}</h3>
+        <div class="card" data-type="${typeValue}" data-festivals="${festivals}">
+            <img src="${images[0]}" alt="${displayName}" loading="lazy">
+            <h3 onclick="openProduct('${quote(product.id)}')">${displayName}</h3>
+            <small class="product-category">${categoryLabel}</small>
             <p>${money(product.price)}</p>
-            <small>${product.description || ""}</small>
+            <small>${photoCount} ${photoCount === 1 ? "photo" : "photos"}</small>
+            <small class="product-description">${descriptionText}</small>
             ${orderButton}
+            ${customizeButton}
             ${addCartButton}
             ${adminButtons}
         </div>
@@ -201,6 +1521,80 @@ async function renderFeaturedProducts() {
     container.innerHTML = products.map(product => productCard(product, { hideCart: true, orderAddsToCart: true })).join("");
 }
 
+function getBestSellerFromOrders(orders, products = getProducts()) {
+    const totals = new Map();
+
+    (orders || []).forEach(order => {
+        (order.items || []).forEach(item => {
+            const name = String(item.name || "").trim();
+            if (!name) return;
+
+            const key = name.toLowerCase();
+            const qty = Number(item.qty || 1);
+            const current = totals.get(key) || { name, quantity: 0 };
+            current.quantity += qty;
+            totals.set(key, current);
+        });
+    });
+
+    const best = Array.from(totals.values()).sort((a, b) => b.quantity - a.quantity)[0];
+    if (!best) return null;
+
+    const product = products.find(item => String(item.name || "").toLowerCase() === best.name.toLowerCase());
+    return { ...best, product };
+}
+
+async function getBestSellerData() {
+    if (useBackend) {
+        try {
+            const data = await phpStatsRequest("stats.php?scope=public");
+            if (data.bestSeller) return data.bestSeller;
+        } catch (error) {
+            console.warn(error.message);
+        }
+
+        try {
+            const data = await apiRequest("/api/stats?scope=public");
+            if (data.bestSeller) return data.bestSeller;
+        } catch (error) {
+            console.warn(error.message);
+        }
+    }
+
+    const products = await getProductsData();
+    return getBestSellerFromOrders(getLocalOrders(), products);
+}
+
+async function renderBestSellerSection() {
+    const container = document.getElementById("bestSellerProduct");
+    if (!container) return;
+
+    const bestSeller = await getBestSellerData();
+
+    if (!bestSeller) {
+        container.innerHTML = "<p>Most ordered product will appear after the first order.</p>";
+        return;
+    }
+
+    const product = bestSeller.product || {};
+    const image = productImages(product)[0];
+    const price = Number(product.price || 0);
+    const productName = product.name || bestSeller.name;
+
+    container.innerHTML = `
+        <div class="best-seller-card">
+            <img src="${image}" alt="${escapeHtml(productName)}">
+            <div>
+                <span class="eyebrow">Most ordered product</span>
+                <h3>${escapeHtml(productName)}</h3>
+                <p>${Number(bestSeller.quantity || 0)} orders placed for this product.</p>
+                ${price ? `<p><b>${money(price)}</b></p>` : ""}
+                <button onclick="${product.id ? `openProduct('${quote(product.id)}')` : `filterEmotion('keychain')`}">Customize</button>
+            </div>
+        </div>
+    `;
+}
+
 async function renderProducts() {
     const container = document.getElementById("productList");
     if (!container) return;
@@ -213,16 +1607,36 @@ async function loadAdminProducts() {
     const container = document.getElementById("adminProducts");
     if (!container) return;
 
-    container.innerHTML = (await getProductsData())
-        .map(product => productCard(product, { admin: true, hideCart: true }))
-        .join("");
+    const products = await getProductsData();
+    const totalProducts = document.getElementById("totalProducts");
+
+    if (totalProducts) totalProducts.innerText = products.length;
+
+    container.innerHTML = products.length
+        ? products.map(product => productCard(product, { admin: true, hideCart: true })).join("")
+        : "<p>No products found.</p>";
+}
+
+function getAdminImageValues() {
+    const images = [];
+
+    document.querySelectorAll(".admin-image-field").forEach(field => {
+        const image = field.value.trim();
+
+        if (image && !images.includes(image) && images.length < 10) {
+            images.push(image);
+        }
+    });
+
+    return images;
 }
 
 function getProductFormData() {
     const id = document.getElementById("productId").value;
     const name = document.getElementById("adminProductName").value.trim();
     const price = Number(document.getElementById("adminProductPrice").value);
-    const image = document.getElementById("adminProductImage").value.trim();
+    const images = getAdminImageValues();
+    const image = images[0] || "";
     const type = document.getElementById("adminProductType").value;
     const description = document.getElementById("adminProductDescription").value.trim();
     const featured = document.getElementById("adminProductFeatured").checked;
@@ -236,6 +1650,7 @@ function getProductFormData() {
         name,
         price,
         image,
+        images,
         type,
         description,
         featured
@@ -255,6 +1670,27 @@ async function saveAdminProduct() {
     if (useBackend) {
         try {
             const method = isEditing ? "PUT" : "POST";
+            const path = isEditing ? "products.php?id=" + encodeURIComponent(product.id) : "products.php";
+            await phpProductRequest(path, {
+                method,
+                body: JSON.stringify(product)
+            });
+            resetProductForm();
+            await loadAdminProducts();
+            await loadAdminNotifications();
+            msg.innerText = "Product saved in products table.";
+            return;
+        } catch (error) {
+            if (!isApiUnavailableError(error)) {
+                msg.innerText = error.message;
+                return;
+            }
+
+            console.warn(error.message);
+        }
+
+        try {
+            const method = isEditing ? "PUT" : "POST";
             const path = isEditing ? "/api/products/" + encodeURIComponent(product.id) : "/api/products";
             await apiRequest(path, {
                 method,
@@ -262,21 +1698,36 @@ async function saveAdminProduct() {
             });
             resetProductForm();
             await loadAdminProducts();
+            await loadAdminNotifications();
             msg.innerText = "Product saved.";
             return;
         } catch (error) {
-            msg.innerText = error.message;
-            return;
+            if (!isApiUnavailableError(error)) {
+                msg.innerText = error.message;
+                return;
+            }
+
+            console.warn(error.message);
         }
     }
 
     const products = getProducts();
     const existingIndex = products.findIndex(item => item.id === product.id);
     if (existingIndex >= 0) products[existingIndex] = product;
-    else products.push({ ...product, id: makeProductId(product.name) });
+    else {
+        product.id = makeProductId(product.name);
+        products.push(product);
+    }
+    addLocalNotification(
+        "product",
+        isEditing ? "Product updated" : "Product added",
+        `${product.name} was ${isEditing ? "updated" : "added to the shop"}`,
+        { productId: product.id }
+    );
     resetProductForm();
-    loadAdminProducts();
     saveProducts(products);
+    loadAdminProducts();
+    loadAdminNotifications();
     msg.innerText = "Product saved.";
 }
 
@@ -284,11 +1735,15 @@ async function editAdminProduct(id) {
     const product = await findProductData(id);
     if (!product) return;
 
+    resetProductForm();
     document.getElementById("productId").value = product.id;
     document.getElementById("adminProductName").value = product.name;
     document.getElementById("adminProductPrice").value = product.price;
-    document.getElementById("adminProductImage").value = product.image;
-    document.getElementById("adminProductType").value = product.type;
+    productImages(product).forEach((image, index) => {
+        const field = document.getElementById("adminProductImage" + (index + 1));
+        if (field) field.value = image;
+    });
+    document.getElementById("adminProductType").value = productTypeValue(product);
     document.getElementById("adminProductDescription").value = product.description || "";
     document.getElementById("adminProductFeatured").checked = Boolean(product.featured);
     document.getElementById("productAdminMsg").innerText = "Editing " + product.name;
@@ -297,19 +1752,47 @@ async function editAdminProduct(id) {
 async function deleteAdminProduct(id) {
     if (useBackend) {
         try {
-            await apiRequest("/api/products/" + encodeURIComponent(id), { method: "DELETE" });
+            await phpProductRequest("products.php?id=" + encodeURIComponent(id), { method: "DELETE" });
             await loadAdminProducts();
+            await loadAdminNotifications();
             resetProductForm();
             return;
         } catch (error) {
-            document.getElementById("productAdminMsg").innerText = error.message;
+            if (!isApiUnavailableError(error)) {
+                document.getElementById("productAdminMsg").innerText = error.message;
+                return;
+            }
+
+            console.warn(error.message);
+        }
+
+        try {
+            await apiRequest("/api/products/" + encodeURIComponent(id), { method: "DELETE" });
+            await loadAdminProducts();
+            await loadAdminNotifications();
+            resetProductForm();
             return;
+        } catch (error) {
+            if (!isApiUnavailableError(error)) {
+                document.getElementById("productAdminMsg").innerText = error.message;
+                return;
+            }
+
+            console.warn(error.message);
         }
     }
 
+    const existingProduct = getProducts().find(product => product.id === id);
     const products = getProducts().filter(product => product.id !== id);
     saveProducts(products);
+    addLocalNotification(
+        "product",
+        "Product deleted",
+        `${existingProduct?.name || "A product"} was removed from the shop`,
+        { productId: id }
+    );
     loadAdminProducts();
+    loadAdminNotifications();
     resetProductForm();
 }
 
@@ -318,7 +1801,6 @@ function resetProductForm() {
         "productId",
         "adminProductName",
         "adminProductPrice",
-        "adminProductImage",
         "adminProductDescription"
     ];
 
@@ -331,9 +1813,310 @@ function resetProductForm() {
     const featured = document.getElementById("adminProductFeatured");
     const msg = document.getElementById("productAdminMsg");
 
-    if (type) type.value = "love";
+    document.querySelectorAll(".admin-image-field").forEach(field => {
+        field.value = "";
+    });
+
+    if (type) type.value = "bracelet";
     if (featured) featured.checked = false;
     if (msg) msg.innerText = "";
+}
+
+async function getUsersData() {
+    if (useBackend) {
+        try {
+            const data = await phpUsersRequest("users.php");
+            return data.users;
+        } catch (error) {
+            console.warn(error.message);
+        }
+
+        try {
+            const data = await apiRequest("/api/users");
+            return data.users;
+        } catch (error) {
+            console.warn(error.message);
+        }
+    }
+
+    return getLocalUsers().map((user, index) => ({
+        id: index + 1,
+        name: user.username,
+        email: user.username,
+        role: user.role || "customer",
+        createdAt: "Local browser record"
+    }));
+}
+
+async function loadAdminUsers() {
+    const container = document.getElementById("adminUsers");
+    if (!container) return;
+
+    const users = await getUsersData();
+    const customers = users.filter(user => (user.role || "customer") !== "admin");
+    const totalCustomers = document.getElementById("totalCustomers");
+
+    if (totalCustomers) totalCustomers.innerText = users.length;
+
+    if (customers.length === 0) {
+        container.innerHTML = "<p>No customer records yet.</p>";
+        return;
+    }
+
+    container.innerHTML = customers.map(user => `
+        <div class="record-card">
+            <h3>${escapeHtml(user.name || "Customer")}</h3>
+            <p><b>Email:</b> ${escapeHtml(user.email || "Not provided")}</p>
+            <p><b>Role:</b> ${escapeHtml(user.role || "customer")}</p>
+            <small>${escapeHtml(user.createdAt || "")}</small>
+        </div>
+    `).join("");
+}
+
+function getLocalNotifications() {
+    try {
+        const notifications = JSON.parse(localStorage.getItem("notifications") || "[]");
+        return Array.isArray(notifications) ? notifications : [];
+    } catch (error) {
+        localStorage.removeItem("notifications");
+        return [];
+    }
+}
+
+function saveLocalNotifications(notifications) {
+    localStorage.setItem("notifications", JSON.stringify(notifications.slice(0, 100)));
+}
+
+function addLocalNotification(type, title, message, meta = {}) {
+    const notifications = getLocalNotifications();
+    notifications.unshift({
+        id: "local-" + Date.now() + "-" + Math.random().toString(16).slice(2),
+        type,
+        title,
+        message,
+        meta,
+        read: false,
+        createdAt: new Date().toLocaleString()
+    });
+    saveLocalNotifications(notifications);
+}
+
+async function getNotificationsData() {
+    if (useBackend) {
+        try {
+            const data = await phpNotificationsRequest("notifications.php");
+            return data.notifications;
+        } catch (error) {
+            console.warn(error.message);
+        }
+
+        try {
+            const data = await apiRequest("/api/notifications");
+            return data.notifications;
+        } catch (error) {
+            console.warn(error.message);
+        }
+    }
+
+    return getLocalNotifications();
+}
+
+function notificationTime(value) {
+    if (!value) return "";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+}
+
+async function loadAdminNotifications() {
+    const container = document.getElementById("adminNotifications");
+    if (!container) return;
+
+    const notifications = await getNotificationsData();
+    const unread = notifications.filter(item => !item.read).length;
+    const totalNotifications = document.getElementById("totalNotifications");
+
+    if (totalNotifications) totalNotifications.innerText = unread;
+
+    if (notifications.length === 0) {
+        container.innerHTML = "<p>No notifications yet.</p>";
+        return;
+    }
+
+    container.innerHTML = notifications.map(notification => {
+        const id = quote(notification.id);
+        const readClass = notification.read ? "" : " unread";
+        const readButton = notification.read
+            ? ""
+            : `<button onclick="markNotificationRead('${id}')">Mark Read</button>`;
+
+        return `
+            <div class="notification-card${readClass}">
+                <div>
+                    <small>${escapeHtml(notification.type || "notification")}</small>
+                    <h3>${escapeHtml(notification.title || "Notification")}</h3>
+                    <p>${escapeHtml(notification.message || "")}</p>
+                    <span>${escapeHtml(notificationTime(notification.createdAt))}</span>
+                </div>
+                <div class="notification-actions">
+                    ${readButton}
+                </div>
+            </div>
+        `;
+    }).join("");
+}
+
+async function markNotificationRead(id) {
+    if (useBackend) {
+        try {
+            await phpNotificationsRequest("notifications.php?id=" + encodeURIComponent(id), {
+                method: "PATCH",
+                body: JSON.stringify({ read: true })
+            });
+            await loadAdminNotifications();
+            return;
+        } catch (error) {
+            if (!isApiUnavailableError(error)) {
+                alert(error.message);
+                return;
+            }
+
+            console.warn(error.message);
+        }
+
+        try {
+            await apiRequest("/api/notifications/" + encodeURIComponent(id), {
+                method: "PATCH",
+                body: JSON.stringify({ read: true })
+            });
+            await loadAdminNotifications();
+            return;
+        } catch (error) {
+            if (!isApiUnavailableError(error)) {
+                alert(error.message);
+                return;
+            }
+
+            console.warn(error.message);
+        }
+    }
+
+    const notifications = getLocalNotifications().map(notification =>
+        String(notification.id) === String(id) ? { ...notification, read: true } : notification
+    );
+    saveLocalNotifications(notifications);
+    loadAdminNotifications();
+}
+
+function initContactPage() {
+    showUser();
+    updateCartCount();
+
+    const emailField = document.getElementById("contactEmail");
+    const nameField = document.getElementById("contactName");
+    const user = localStorage.getItem("loggedInUser") || "";
+
+    if (user && user.includes("@") && emailField && !emailField.value) {
+        emailField.value = user;
+    }
+
+    if (user && nameField && !nameField.value) {
+        nameField.value = user.includes("@") ? user.split("@")[0] : user;
+    }
+}
+
+function getContactFormData() {
+    return {
+        name: getFieldValue("contactName"),
+        email: getFieldValue("contactEmail"),
+        phone: getFieldValue("contactPhone"),
+        subject: getFieldValue("contactSubject") || "Contact form",
+        message: getFieldValue("contactMessage")
+    };
+}
+
+function validateContactForm(data) {
+    if (!data.name || !data.message || (!data.email && !data.phone)) {
+        return "Name, message, and email or phone are required.";
+    }
+
+    if (data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+        return "Enter a valid email address.";
+    }
+
+    return "";
+}
+
+function contactMailtoUrl(data) {
+    const body = [
+        "New SmartOrnaments contact message",
+        "",
+        `Name: ${data.name}`,
+        `Email: ${data.email || "Not provided"}`,
+        `Phone: ${data.phone || "Not provided"}`,
+        `Subject: ${data.subject}`,
+        "",
+        data.message
+    ].join("\n");
+
+    return `mailto:${ownerEmail}?subject=${encodeURIComponent("SmartOrnaments contact: " + data.subject)}&body=${encodeURIComponent(body)}`;
+}
+
+async function submitContactForm(event) {
+    event.preventDefault();
+
+    const msg = document.getElementById("contactMsg");
+    const form = document.getElementById("contactForm");
+    const data = getContactFormData();
+    const validationError = validateContactForm(data);
+
+    if (validationError) {
+        if (msg) msg.innerText = validationError;
+        return false;
+    }
+
+    if (msg) msg.innerText = "Sending message...";
+
+    if (useBackend) {
+        try {
+            await phpContactRequest("contact.php", {
+                method: "POST",
+                body: JSON.stringify(data)
+            });
+            if (form) form.reset();
+            if (msg) msg.innerText = "Message sent. SmartOrnaments received your contact request.";
+            return true;
+        } catch (error) {
+            if (!isApiUnavailableError(error)) {
+                if (msg) msg.innerText = error.message;
+                return false;
+            }
+
+            console.warn(error.message);
+        }
+
+        try {
+            await apiRequest("/api/contact", {
+                method: "POST",
+                body: JSON.stringify(data)
+            });
+            if (form) form.reset();
+            if (msg) msg.innerText = "Message sent. SmartOrnaments received your contact request.";
+            return true;
+        } catch (error) {
+            if (!isApiUnavailableError(error)) {
+                if (msg) msg.innerText = error.message;
+                return false;
+            }
+
+            console.warn(error.message);
+        }
+    }
+
+    addLocalNotification("contact", "New contact message", `${data.name} sent a message: ${data.subject}`);
+    window.open(contactMailtoUrl(data), "_blank");
+    if (form) form.reset();
+    if (msg) msg.innerText = "Email app opened for smartornaments.shop@gmail.com.";
+    return true;
 }
 
 function buildWhatsAppOrderUrl(product, price, details = {}) {
@@ -369,28 +2152,160 @@ function openDirectOrder(product, price, details = {}, sameWindow = false) {
     window.open(url, "_blank");
 }
 
-function orderNow(product, price) {
-    if (!localStorage.getItem("loggedInUser")) {
-        savePendingDirectOrder(product, price);
-        requireLogin(getCurrentPage());
+function resizeOrderPhoto(file) {
+    return new Promise((resolve, reject) => {
+        if (!file) {
+            resolve(null);
+            return;
+        }
+
+        const reader = new FileReader();
+
+        reader.onload = () => {
+            const image = new Image();
+
+            image.onload = () => {
+                const maxSize = 900;
+                const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
+                const canvas = document.createElement("canvas");
+                canvas.width = Math.max(1, Math.round(image.width * scale));
+                canvas.height = Math.max(1, Math.round(image.height * scale));
+                const context = canvas.getContext("2d");
+
+                context.drawImage(image, 0, 0, canvas.width, canvas.height);
+                resolve({
+                    name: file.name,
+                    dataUrl: canvas.toDataURL("image/jpeg", 0.72)
+                });
+            };
+
+            image.onerror = reject;
+            image.src = reader.result;
+        };
+
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+function renderPhotoPreview(targetId, photo) {
+    const preview = document.getElementById(targetId);
+    if (!preview) return;
+
+    if (!photo?.dataUrl) {
+        preview.innerHTML = "";
         return;
     }
 
-    openDirectOrder(product, price);
+    preview.innerHTML = `
+        <img src="${photo.dataUrl}" alt="${escapeHtml(photo.name || "Uploaded photo")}">
+        <small>${escapeHtml(photo.name || "Photo selected")}</small>
+    `;
+}
+
+async function handleCustomizationPhoto(input) {
+    const file = input.files?.[0];
+    orderPhotoStorage.product = await resizeOrderPhoto(file);
+    renderPhotoPreview("customPhotoPreview", orderPhotoStorage.product);
+}
+
+async function handleCheckoutPhoto(input) {
+    const file = input.files?.[0];
+    orderPhotoStorage.checkout = await resizeOrderPhoto(file);
+    renderPhotoPreview("checkoutPhotoPreview", orderPhotoStorage.checkout);
+    updateOrderSummary();
+}
+
+function cleanCustomizationData(data = {}) {
+    const photoData = data.photoData || data.photo?.dataUrl || "";
+    const photoName = data.photoName || data.photo?.name || "";
+    return {
+        customName: String(data.customName || data.name || "").trim(),
+        color: String(data.color || "").trim(),
+        photoName: String(photoName || "").trim(),
+        photoData: String(photoData || "").trim()
+    };
+}
+
+function hasCustomizationData(customization) {
+    const details = cleanCustomizationData(customization);
+    return Boolean(details.customName || details.color || details.photoName || details.photoData);
+}
+
+function customizationKey(customization) {
+    const details = cleanCustomizationData(customization);
+    return JSON.stringify(details);
+}
+
+function customizationDetailsHtml(customization) {
+    const details = cleanCustomizationData(customization);
+    if (!hasCustomizationData(details)) return "";
+
+    return `
+        <div class="customization-details">
+            ${details.customName ? `<p><b>Name:</b> ${escapeHtml(details.customName)}</p>` : ""}
+            ${details.color ? `<p><b>Color:</b> ${escapeHtml(details.color)}</p>` : ""}
+            ${details.photoName ? `<p><b>Photo:</b> ${escapeHtml(details.photoName)}</p>` : ""}
+            ${details.photoData ? `<img src="${details.photoData}" alt="${escapeHtml(details.photoName || "Customization photo")}">` : ""}
+        </div>
+    `;
+}
+
+function collectProductCustomization() {
+    return cleanCustomizationData({
+        customName: getFieldValue("customName"),
+        color: getFieldValue("customColor"),
+        photo: orderPhotoStorage.product
+    });
+}
+
+function addCartItem(name, price, qty = 1, customization = {}) {
+    const cart = getLocalCart();
+    const cleanCustomization = cleanCustomizationData(customization);
+    const existingItem = cart.find(item =>
+        item.name === name
+        && Number(item.price) === Number(price)
+        && customizationKey(item.customization) === customizationKey(cleanCustomization)
+    );
+
+    if (existingItem) {
+        existingItem.qty = Number(existingItem.qty || 1) + qty;
+    } else {
+        cart.push({ name, price: Number(price), qty, customization: cleanCustomization });
+    }
+
+    localStorage.setItem("cart", JSON.stringify(cart));
+    updateCartCount();
+}
+
+function orderNow(product, price) {
+    addCartItem(product, price);
+
+    if (!localStorage.getItem("loggedInUser")) {
+        sessionStorage.removeItem("pendingDirectOrder");
+        requireLogin("cart.html");
+        return;
+    }
+
+    window.location.href = "cart.html";
 }
 
 function searchProduct() {
     const input = document.getElementById("search").value.toLowerCase();
     const cards = document.getElementsByClassName("card");
-    const type = localStorage.getItem("emotionFilter");
+    const filters = getActiveProductFilters();
     let visibleCount = 0;
 
     for (let i = 0; i < cards.length; i++) {
         const title = cards[i].getElementsByTagName("h3")[0].innerText.toLowerCase();
+        const category = cards[i].querySelector(".product-category")?.innerText.toLowerCase() || "";
+        const description = cards[i].querySelector(".product-description")?.innerText.toLowerCase() || "";
         const itemType = cards[i].getAttribute("data-type");
-        const matchSearch = title.includes(input);
-        const matchFilter = !type || itemType === type;
-        const isVisible = matchSearch && matchFilter;
+        const itemFestivals = (cards[i].getAttribute("data-festivals") || "").split(" ");
+        const matchSearch = title.includes(input) || category.includes(input) || description.includes(input);
+        const matchType = !filters.type || itemType === filters.type;
+        const matchFestival = !filters.festival || itemFestivals.includes(filters.festival);
+        const isVisible = matchSearch && matchType && matchFestival;
 
         cards[i].style.display = isVisible ? "block" : "none";
         if (isVisible) visibleCount++;
@@ -402,46 +2317,98 @@ function searchProduct() {
 async function openProduct(id) {
     const product = await findProductData(id);
     if (!product) return;
+    const images = productImages(product);
 
     localStorage.setItem("productId", product.id);
     localStorage.setItem("productName", product.name);
     localStorage.setItem("productPrice", product.price);
-    localStorage.setItem("productImage", product.image);
-    localStorage.setItem("productDescription", product.description || "");
+    localStorage.setItem("productImage", images[0]);
+    localStorage.setItem("productImages", JSON.stringify(images));
+    localStorage.setItem("productType", productTypeValue(product));
+    localStorage.setItem("productDescription", productDescription(product));
     window.location.href = "product.html";
 }
 
+function getSavedProductImages() {
+    try {
+        const images = JSON.parse(localStorage.getItem("productImages") || "[]");
+        if (Array.isArray(images) && images.length) {
+            return productImages({ image: images[0], images });
+        }
+    } catch (error) {
+        localStorage.removeItem("productImages");
+    }
+
+    return productImages({ image: localStorage.getItem("productImage") });
+}
+
+function setProductImage(image) {
+    const imgEl = document.getElementById("productImg");
+    if (imgEl && image) imgEl.src = image;
+
+    document.querySelectorAll(".gallery-thumb").forEach(button => {
+        button.classList.toggle("active", button.dataset.image === image);
+    });
+}
+
 function loadProduct() {
-    document.getElementById("productName").innerText = localStorage.getItem("productName") || "Product";
-    document.getElementById("productPrice").innerText = money(localStorage.getItem("productPrice") || 0);
-    document.getElementById("productImg").src = localStorage.getItem("productImage") || "images/Keychain.jpeg";
-    const description = document.getElementById("productDescription");
-    if (description) description.innerText = localStorage.getItem("productDescription") || "";
+    const name = localStorage.getItem("productName") || "Product";
+    const price = Number(localStorage.getItem("productPrice") || 0);
+    const images = getSavedProductImages();
+    const image = images[0];
+    const description = localStorage.getItem("productDescription")
+        || productCategoryDescription(localStorage.getItem("productType"));
+
+    const nameEl = document.getElementById("productName");
+    const priceEl = document.getElementById("productPrice");
+    const imgEl = document.getElementById("productImg");
+    const descEl = document.getElementById("productDescription");
+    const galleryEl = document.getElementById("productGallery");
+
+    orderPhotoStorage.product = null;
+    renderPhotoPreview("customPhotoPreview", null);
+
+    if (nameEl) nameEl.innerText = name;
+    if (priceEl) priceEl.innerText = money(price);
+    if (imgEl) imgEl.src = image;
+    if (descEl) descEl.innerText = description;
+    if (galleryEl) {
+        galleryEl.innerHTML = images.map((item, index) => `
+            <button type="button" class="gallery-thumb ${index === 0 ? "active" : ""}" data-image="${escapeHtml(item)}" onclick="setProductImage('${quote(item)}')">
+                <img src="${item}" alt="${name} image ${index + 1}">
+            </button>
+        `).join("");
+    }
 }
 
 function orderProduct() {
     const name = localStorage.getItem("productName");
     const price = localStorage.getItem("productPrice");
-    const details = getDirectOrderDetails();
+    const qty = Number(document.getElementById("qty")?.value || 1);
+
+    addCartItem(name, price, qty, collectProductCustomization());
 
     if (!localStorage.getItem("loggedInUser")) {
-        savePendingDirectOrder(name, price, details);
-        requireLogin(getCurrentPage());
+        sessionStorage.removeItem("pendingDirectOrder");
+        requireLogin("cart.html");
         return;
     }
 
-    openDirectOrder(name, price, details);
+    window.location.href = "cart.html";
 }
 
 function getPurchasedItems() {
-    const orders = JSON.parse(localStorage.getItem("orders")) || [];
+    const orders = getLocalOrders();
     return orders.flatMap(order => order.items || []);
 }
 
 function addCurrentProductToCart() {
     const name = localStorage.getItem("productName") || "Product";
     const price = Number(localStorage.getItem("productPrice") || 0);
-    addToCart(name, price);
+    const qty = Number(document.getElementById("qty")?.value || 1);
+
+    addCartItem(name, price, qty, collectProductCustomization());
+    alert("Added to cart");
 }
 
 function generateGift() {
@@ -474,24 +2441,59 @@ function generateGift() {
 
 function filterEmotion(type) {
     localStorage.setItem("emotionFilter", type);
+    localStorage.removeItem("festivalFilter");
     window.location.href = "products.html?emotion=" + encodeURIComponent(type);
+}
+
+function filterFestival(festival) {
+    localStorage.setItem("festivalFilter", festival);
+    localStorage.removeItem("emotionFilter");
+    window.location.href = "products.html?festival=" + encodeURIComponent(festival);
+}
+
+function getActiveProductFilters() {
+    const params = new URLSearchParams(window.location.search);
+    const type = params.get("emotion") || "";
+    const festival = params.get("festival") || "";
+
+    return { type, festival };
 }
 
 function applyEmotionFilter() {
     const params = new URLSearchParams(window.location.search);
     const type = params.get("emotion");
+    const festival = params.get("festival");
     const cards = document.getElementsByClassName("card");
+    const titleEl = document.getElementById("collectionTitle");
     let visibleCount = 0;
 
     if (type) {
         localStorage.setItem("emotionFilter", type);
+        localStorage.removeItem("festivalFilter");
+    } else if (festival) {
+        localStorage.setItem("festivalFilter", festival);
+        localStorage.removeItem("emotionFilter");
     } else {
         localStorage.removeItem("emotionFilter");
+        localStorage.removeItem("festivalFilter");
+    }
+
+    if (titleEl) {
+        if (festivalCollections[festival]) {
+            titleEl.innerText = festivalCollections[festival].title;
+        } else if (type) {
+            titleEl.innerText = productCategoryLabel(type);
+        } else {
+            titleEl.innerText = "All Products";
+        }
     }
 
     for (let i = 0; i < cards.length; i++) {
         const itemType = cards[i].getAttribute("data-type");
-        const isVisible = !type || itemType === type;
+        const itemFestivals = (cards[i].getAttribute("data-festivals") || "").split(" ");
+        const matchType = !type || itemType === type;
+        const matchFestival = !festival || itemFestivals.includes(festival);
+        const isVisible = matchType && matchFestival;
         cards[i].style.display = isVisible ? "block" : "none";
         if (isVisible) visibleCount++;
     }
@@ -501,6 +2503,7 @@ function applyEmotionFilter() {
 
 function clearEmotionFilter() {
     localStorage.removeItem("emotionFilter");
+    localStorage.removeItem("festivalFilter");
     window.location.href = "products.html";
 }
 
@@ -568,6 +2571,9 @@ let authMode = "login";
 function authElements() {
     return {
         username: document.getElementById("username"),
+        email: document.getElementById("email"),
+        name: document.getElementById("name"),
+        nameField: document.getElementById("nameField"),
         password: document.getElementById("password"),
         remember: document.getElementById("rememberUser"),
         title: document.getElementById("authTitle"),
@@ -602,6 +2608,8 @@ function setAuthMode(mode) {
     els.submit.innerText = isSignup ? "Signup" : "Login";
     els.switchButton.innerText = isSignup ? "Already have an account?" : "Create account";
     els.password.autocomplete = isSignup ? "new-password" : "current-password";
+    if (els.nameField) els.nameField.hidden = !isSignup;
+    if (els.name) els.name.required = isSignup;
     els.loginTab.classList.toggle("active", !isSignup);
     els.signupTab.classList.toggle("active", isSignup);
     setAuthMessage("");
@@ -620,11 +2628,23 @@ function initAuthPage() {
 
     const els = authElements();
     const rememberedUsername = localStorage.getItem("rememberedUsername");
-    const loggedInUser = localStorage.getItem("loggedInUser");
-    const role = localStorage.getItem("userRole");
+    const wantsAdmin = getPendingLoginRedirect() === "admin.html";
+    let loggedInUser = localStorage.getItem("loggedInUser");
+    let role = localStorage.getItem("userRole");
 
-    if (rememberedUsername && els.username) {
-        els.username.value = rememberedUsername;
+    if (wantsAdmin && loggedInUser && role !== "admin") {
+        localStorage.removeItem("authToken");
+        localStorage.removeItem("loggedInUser");
+        localStorage.removeItem("userRole");
+        loggedInUser = "";
+        role = "";
+        setAuthMessage("Login with smartornaments.shop@gmail.com / admin123 to open the admin panel.", "error");
+    }
+
+    if (wantsAdmin && (els.email || els.username)) {
+        (els.email || els.username).value = adminEmail;
+    } else if (rememberedUsername && (els.email || els.username)) {
+        (els.email || els.username).value = rememberedUsername;
         if (els.remember) els.remember.checked = true;
     }
 
@@ -640,19 +2660,44 @@ function submitAuth(event) {
 }
 
 function getAuthCredentials() {
-    const { username, password } = authElements();
-    const enteredUsername = username?.value.trim() || "";
+    const { username, email, name, password } = authElements();
+    const enteredUsername = (email || username)?.value.trim() || "";
+    const enteredName = name?.value.trim() || "";
     const enteredPassword = password?.value || "";
 
     if (!enteredUsername || !enteredPassword) {
-        setAuthMessage("Enter username and password", "error");
+        setAuthMessage("Enter email or admin username and password", "error");
         return null;
     }
 
     return {
         username: enteredUsername,
+        email: enteredUsername,
+        name: enteredName || enteredUsername.split("@")[0],
         password: enteredPassword
     };
+}
+
+async function phpAuthRequest(path, credentials) {
+    const formData = new FormData();
+    formData.append("name", credentials.name);
+    formData.append("email", credentials.email);
+    formData.append("password", credentials.password);
+
+    const response = await fetch(path, {
+        method: "POST",
+        body: formData,
+        credentials: "same-origin"
+    });
+    const text = (await response.text()).trim();
+
+    if (!response.ok) {
+        const contentType = (response.headers.get("Content-Type") || "").toLowerCase();
+        const isHtml404 = response.status === 404 && contentType.includes("text/html");
+        throw new Error(isHtml404 ? "Request failed" : text || "Request failed");
+    }
+
+    return text;
 }
 
 function rememberUsername(username) {
@@ -695,17 +2740,21 @@ function resumePendingDirectOrder() {
     if (!pendingOrder) return false;
 
     sessionStorage.removeItem("loginRedirect");
-    setAuthMessage("Login successful. Opening WhatsApp...", "success");
+    addCartItem(pendingOrder.product, pendingOrder.price);
+    setAuthMessage("Login successful. Opening cart...", "success");
     setTimeout(() => {
-        openDirectOrder(pendingOrder.product, pendingOrder.price, pendingOrder.details || {}, true);
+        window.location.href = "cart.html";
     }, 700);
 
     return true;
 }
 
 function completeLogin(user, token = "") {
-    localStorage.setItem("loggedInUser", user.username);
-    localStorage.setItem("userRole", user.role || "customer");
+    const username = user.username || user.email || "";
+    const role = user.role || (isAdminLoginId(username) ? "admin" : "customer");
+
+    localStorage.setItem("loggedInUser", username);
+    localStorage.setItem("userRole", role);
 
     if (token) {
         localStorage.setItem("authToken", token);
@@ -713,15 +2762,15 @@ function completeLogin(user, token = "") {
         localStorage.removeItem("authToken");
     }
 
-    rememberUsername(user.username);
-    if (user.role === "admin") {
+    rememberUsername(username);
+    if (role === "admin") {
         sessionStorage.removeItem("pendingDirectOrder");
     } else if (resumePendingDirectOrder()) {
         return;
     }
 
     setAuthMessage("Login successful", "success");
-    setTimeout(() => window.location.href = loginDestination(user.role), 700);
+    setTimeout(() => window.location.href = loginDestination(role), 700);
 }
 
 function getLocalUsers() {
@@ -734,8 +2783,12 @@ function getLocalUsers() {
         users = [];
     }
 
-    if (!users.some(user => user.username.toLowerCase() === "admin")) {
-        users.push({ username: "admin", password: "admin123", role: "admin" });
+    if (!users.some(user => user.username.toLowerCase() === adminEmail)) {
+        users.push({ username: adminEmail, password: "admin123", role: "admin" });
+    }
+
+    if (!users.some(user => user.username.toLowerCase() === legacyAdminUsername)) {
+        users.push({ username: legacyAdminUsername, password: "admin123", role: "admin" });
     }
 
     const legacyUsername = localStorage.getItem("user");
@@ -747,7 +2800,7 @@ function getLocalUsers() {
         users.push({
             username: legacyUsername,
             password: legacyPassword,
-            role: legacyUsername.toLowerCase() === "admin" ? "admin" : "customer"
+            role: isAdminLoginId(legacyUsername) ? "admin" : "customer"
         });
     }
 
@@ -756,6 +2809,180 @@ function getLocalUsers() {
 
 function saveLocalUsers(users) {
     localStorage.setItem("localUsers", JSON.stringify(users));
+}
+
+function getLocalCart() {
+    try {
+        const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+        return Array.isArray(cart) ? cart : [];
+    } catch (error) {
+        localStorage.removeItem("cart");
+        return [];
+    }
+}
+
+function getLocalOrders() {
+    try {
+        const orders = JSON.parse(localStorage.getItem("orders") || "[]");
+        return Array.isArray(orders) ? orders : [];
+    } catch (error) {
+        localStorage.removeItem("orders");
+        return [];
+    }
+}
+
+function saveLocalOrders(orders) {
+    localStorage.setItem("orders", JSON.stringify(orders));
+}
+
+function orderTimestamp() {
+    return new Date().toLocaleString();
+}
+
+function normalizeOrderStatus(status) {
+    if (status === "Confirmed") return "Making";
+    return orderStatuses.includes(status) ? status : "Pending";
+}
+
+function nextOrderStatus(currentStatus) {
+    const current = normalizeOrderStatus(currentStatus);
+    const index = orderStatuses.indexOf(current);
+    return orderStatuses[Math.min(index + 1, orderStatuses.length - 1)];
+}
+
+function orderStatusTimeField(status) {
+    if (status === "Making") return "makingAt";
+    if (status === "Shipped") return "shippedAt";
+    if (status === "Delivered") return "deliveredAt";
+    return "placedAt";
+}
+
+function applyOrderStatus(order, status) {
+    const previousStatus = normalizeOrderStatus(order.status);
+    const nextStatus = normalizeOrderStatus(status || previousStatus);
+    const now = orderTimestamp();
+
+    order.status = nextStatus;
+    order.updatedAt = now;
+
+    if (previousStatus !== nextStatus) {
+        const field = orderStatusTimeField(nextStatus);
+        order[field] = order[field] || now;
+    }
+
+    if (nextStatus === "Making") order.confirmedAt = order.confirmedAt || order.makingAt || now;
+
+    return order;
+}
+
+function createLocalOrder(orderData) {
+    const now = orderTimestamp();
+    const order = {
+        ...orderData,
+        id: nextOrderId(),
+        status: "Pending",
+        date: now,
+        placedAt: now,
+        updatedAt: now
+    };
+
+    const orders = getLocalOrders();
+    orders.push(order);
+    saveLocalOrders(orders);
+    addLocalNotification(
+        "order",
+        "New order received",
+        `${order.customer?.name || "Customer"} placed ${order.id} for ${money(order.total || 0)}`,
+        { orderId: order.id }
+    );
+    return order;
+}
+
+function saveLocalOrderSnapshot(order) {
+    const orders = getLocalOrders();
+    const index = orders.findIndex(item => item.id === order.id);
+
+    if (index >= 0) {
+        orders[index] = order;
+    } else {
+        orders.push(order);
+    }
+
+    saveLocalOrders(orders);
+}
+
+function getWhatsAppPhoneNumber(phone) {
+    const digits = String(phone || "").replace(/\D/g, "");
+
+    if (!digits) return "";
+    if (digits.length === 10) return "91" + digits;
+    if (digits.length === 11 && digits.startsWith("0")) return "91" + digits.slice(1);
+
+    return digits;
+}
+
+function getAppPageUrl(page) {
+    if (!/^https?:$/.test(location.protocol)) return "";
+
+    const basePath = location.pathname.replace(/[^/]*$/, page);
+    return location.origin + basePath;
+}
+
+function buildOrderConfirmationMessage(order) {
+    const customer = order.customer || {};
+    const trackingUrl = getAppPageUrl("orders.html");
+    const status = normalizeOrderStatus(order.status);
+    const lines = [
+        `Hi ${customer.name || "there"}, your SmartOrnaments order update is ready.`,
+        "",
+        `Order ID: ${order.id || "Not provided"}`,
+        `Total: ${money(order.total || 0)}`,
+        `Status: ${status}`,
+        "",
+        status === "Making"
+            ? "We are preparing your order now."
+            : status === "Shipped"
+            ? "Your order has been shipped."
+            : status === "Delivered"
+            ? "Your order has been delivered. Thank you for shopping with us."
+            : "Your order is pending."
+    ];
+
+    if (trackingUrl) {
+        lines.push(`Track your order: ${trackingUrl}`);
+    } else {
+        lines.push("Track your order from the Orders page after login.");
+    }
+
+    return lines.join("\n");
+}
+
+function openOrderConfirmationWhatsApp(order, popupWindow = null) {
+    const phone = getWhatsAppPhoneNumber(order.customer?.phone);
+
+    if (!phone) {
+        if (popupWindow && !popupWindow.closed) popupWindow.close();
+        alert("Customer phone number is missing. Confirmation WhatsApp not opened.");
+        return;
+    }
+
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(buildOrderConfirmationMessage(order))}`;
+
+    if (popupWindow && !popupWindow.closed) {
+        popupWindow.location.href = url;
+        return;
+    }
+
+    window.open(url, "_blank");
+}
+
+async function saveOrderToPhp(orderData) {
+    const data = await phpOrderRequest("save_order.php", {
+        method: "POST",
+        body: JSON.stringify(orderData)
+    });
+
+    return data.order;
 }
 
 async function signup() {
@@ -780,6 +3007,22 @@ async function signup() {
             if (isApiUnavailableError(error)) {
                 console.warn(error.message);
             } else {
+                setAuthMessage(error.message, "error");
+                return false;
+            }
+        }
+
+        try {
+            const message = await phpAuthRequest("signup.php", credentials);
+            if (!/successful/i.test(message)) {
+                setAuthMessage(message || "Signup failed", "error");
+                return false;
+            }
+
+            completeLogin({ username: credentials.name || credentials.email, role: "customer" });
+            return true;
+        } catch (error) {
+            if (!isApiUnavailableError(error)) {
                 setAuthMessage(error.message, "error");
                 return false;
             }
@@ -828,6 +3071,25 @@ async function login() {
                 return false;
             }
         }
+
+        try {
+            const message = await phpAuthRequest("login.php", credentials);
+            if (!/successful/i.test(message)) {
+                setAuthMessage(message || "Invalid login", "error");
+                return false;
+            }
+
+            completeLogin({
+                username: isAdminLoginId(credentials.username) ? adminEmail : credentials.email,
+                role: isAdminLoginId(credentials.username) ? "admin" : "customer"
+            });
+            return true;
+        } catch (error) {
+            if (!isApiUnavailableError(error)) {
+                setAuthMessage(error.message, "error");
+                return false;
+            }
+        }
     }
 
     const user = getLocalUsers().find(item =>
@@ -836,7 +3098,7 @@ async function login() {
     );
 
     if (!user) {
-        setAuthMessage("Invalid login. Signup first or use admin / admin123.", "error");
+        setAuthMessage("Invalid login. Admin: smartornaments.shop@gmail.com / admin123.", "error");
         return false;
     }
 
@@ -911,25 +3173,16 @@ function requireLogin(redirectTo = getCurrentPage()) {
 }
 
 function addToCart(name, price) {
-    const cart = JSON.parse(localStorage.getItem("cart")) || [];
-    const existingItem = cart.find(item => item.name === name && Number(item.price) === Number(price));
-
-    if (existingItem) {
-        existingItem.qty = Number(existingItem.qty || 1) + 1;
-    } else {
-        cart.push({ name, price, qty: 1 });
-    }
-
-    localStorage.setItem("cart", JSON.stringify(cart));
-    updateCartCount();
+    addCartItem(name, price);
     alert("Added to cart");
 }
 
 function loadCart() {
-    const cart = JSON.parse(localStorage.getItem("cart")) || [];
+    const cart = getLocalCart();
     const container = document.getElementById("cartItems");
     let total = 0;
 
+    initLocationDropdowns();
     restoreCheckoutDetails();
     container.innerHTML = "";
 
@@ -949,6 +3202,7 @@ function loadCart() {
                     <h3>${item.name}</h3>
                     <p>${money(item.price)} each</p>
                     <p><b>Subtotal:</b> ${money(item.price * qty)}</p>
+                    ${customizationDetailsHtml(item.customization)}
                 </div>
                 <div class="qty-controls">
                     <button onclick="changeCartQty(${i}, -1)">-</button>
@@ -966,7 +3220,7 @@ function loadCart() {
 }
 
 function removeItem(index) {
-    const cart = JSON.parse(localStorage.getItem("cart")) || [];
+    const cart = getLocalCart();
     cart.splice(index, 1);
     localStorage.setItem("cart", JSON.stringify(cart));
     loadCart();
@@ -974,7 +3228,7 @@ function removeItem(index) {
 }
 
 function changeCartQty(index, change) {
-    const cart = JSON.parse(localStorage.getItem("cart")) || [];
+    const cart = getLocalCart();
     const item = cart[index];
     if (!item) return;
 
@@ -1012,7 +3266,7 @@ function updateOrderSummary() {
     const summary = document.getElementById("orderSummary");
     if (!summary) return;
 
-    const cart = JSON.parse(localStorage.getItem("cart")) || [];
+    const cart = getLocalCart();
     const offer = localStorage.getItem("offer") || "No offer";
 
     if (cart.length === 0) {
@@ -1022,11 +3276,24 @@ function updateOrderSummary() {
 
     const items = cart.map(item => {
         const qty = Number(item.qty || 1);
-        return `<p>${item.name} x ${qty} - ${money(item.price * qty)}</p>`;
+        return `
+            <p>${item.name} x ${qty} - ${money(item.price * qty)}</p>
+            ${customizationDetailsHtml(item.customization)}
+        `;
     }).join("");
+    const checkoutPhoto = orderPhotoStorage.checkout;
+    const orderCustomization = cleanCustomizationData({
+        customName: getFieldValue("customizationName"),
+        color: getFieldValue("customizationColor"),
+        photo: checkoutPhoto
+    });
+    const orderCustomizationHtml = hasCustomizationData(orderCustomization)
+        ? customizationDetailsHtml(orderCustomization)
+        : "";
 
     summary.innerHTML = `
         ${items}
+        ${orderCustomizationHtml}
         <hr>
         <p><b>Total:</b> ${money(getCartTotal(cart))}</p>
         <p><b>Offer:</b> ${offer}</p>
@@ -1035,16 +3302,27 @@ function updateOrderSummary() {
 
 function getCheckoutDetails() {
     const savedUser = localStorage.getItem("loggedInUser");
+    const flatNo = getFieldValue("flatNo");
+    const areaStreet = getFieldValue("areaStreet");
+    const address = [flatNo, areaStreet].filter(Boolean).join(", ");
+
     return {
-        name: document.getElementById("userName").value.trim() || savedUser || "",
-        phone: document.getElementById("phone").value.trim(),
-        address: document.getElementById("address").value.trim(),
-        state: document.getElementById("state").value.trim(),
-        district: document.getElementById("district").value.trim(),
-        buildingStreet: document.getElementById("buildingStreet").value.trim(),
-        pincode: document.getElementById("pincode").value.trim(),
-        customization: document.getElementById("customization").value.trim() || "None",
-        deliveryNote: document.getElementById("deliveryNote").value.trim() || "None"
+        name: getFieldValue("userName") || savedUser || "",
+        phone: getFieldValue("phone"),
+        flatNo,
+        areaStreet,
+        addressType: getFieldValue("addressType") || "Home",
+        address,
+        state: getFieldValue("state"),
+        district: getFieldValue("district"),
+        buildingStreet: areaStreet,
+        pincode: getFieldValue("pincode"),
+        customizationName: getFieldValue("customizationName"),
+        customizationColor: getFieldValue("customizationColor"),
+        customizationPhotoName: orderPhotoStorage.checkout?.name || "",
+        customizationPhotoData: orderPhotoStorage.checkout?.dataUrl || "",
+        customization: getFieldValue("customization") || "None",
+        deliveryNote: getFieldValue("deliveryNote") || "None"
     };
 }
 
@@ -1054,6 +3332,7 @@ function saveCheckoutDetails(details) {
 
 function restoreCheckoutDetails() {
     const savedDetails = sessionStorage.getItem("pendingCheckoutDetails");
+    initLocationDropdowns();
     if (!savedDetails) return;
 
     try {
@@ -1061,14 +3340,23 @@ function restoreCheckoutDetails() {
         const fields = {
             userName: details.name,
             phone: details.phone,
-            address: details.address,
+            flatNo: details.flatNo || "",
+            areaStreet: details.areaStreet || details.buildingStreet || details.address,
+            addressType: details.addressType || "Home",
             state: details.state,
             district: details.district,
-            buildingStreet: details.buildingStreet,
             pincode: details.pincode,
+            customizationName: details.customizationName || "",
+            customizationColor: details.customizationColor || "",
             customization: details.customization === "None" ? "" : details.customization,
             deliveryNote: details.deliveryNote === "None" ? "" : details.deliveryNote
         };
+
+        initLocationDropdowns(fields.state || "", fields.district || "");
+        orderPhotoStorage.checkout = details.customizationPhotoData
+            ? { name: details.customizationPhotoName || "Customization photo", dataUrl: details.customizationPhotoData }
+            : null;
+        renderPhotoPreview("checkoutPhotoPreview", orderPhotoStorage.checkout);
 
         Object.entries(fields).forEach(([id, value]) => {
             const field = document.getElementById(id);
@@ -1089,8 +3377,8 @@ function resumePendingCheckout() {
 }
 
 function validateCheckout(details) {
-    if (!details.name || !details.phone || !details.address || !details.state || !details.district || !details.buildingStreet || !details.pincode) {
-        return "Name, phone number, address, state, district, building/street, and pincode are required.";
+    if (!details.name || !details.phone || !details.flatNo || !details.areaStreet || !details.addressType || !details.state || !details.district || !details.pincode) {
+        return "Name, phone number, flat/house no, area/street, address type, state, district, and pincode are required.";
     }
 
     if (details.phone.replace(/\D/g, "").length < 10) {
@@ -1105,14 +3393,13 @@ function validateCheckout(details) {
 }
 
 function updateCartCount() {
-    const cart = JSON.parse(localStorage.getItem("cart")) || [];
+    const cart = getLocalCart();
     const el = document.getElementById("cartCount");
     const totalQty = cart.reduce((sum, item) => sum + Number(item.qty || 1), 0);
     if (el) el.innerText = totalQty;
 }
-
-function checkout() {
-    const cart = JSON.parse(localStorage.getItem("cart")) || [];
+async function checkout() {
+    const cart = getLocalCart();
 
     if (cart.length === 0) {
         alert("Cart is empty");
@@ -1136,50 +3423,85 @@ function checkout() {
     }
 
     const offer = localStorage.getItem("offer") || "No offer";
+
+    let total = 0;
     let message = "Hi, I want to order from SmartOrnaments.\n\n";
-    message += `Customer Details\nName: ${details.name}\nPhone: ${details.phone}\nAddress: ${details.address}\n`;
-    message += `State: ${details.state}\nDistrict: ${details.district}\nBuilding No & Street Name: ${details.buildingStreet}\nPincode: ${details.pincode}\n`;
-    message += `Customization: ${details.customization}\nDelivery Note: ${details.deliveryNote}\n\nItems\n`;
+
+    message += `Customer Details\n`;
+    message += `Name: ${details.name}\nPhone: ${details.phone}\nAddress Type: ${details.addressType}\n`;
+    message += `Flat / House No: ${details.flatNo}\nArea / Street: ${details.areaStreet}\n`;
+    message += `State: ${details.state}\nDistrict: ${details.district}\n`;
+    message += `Pincode: ${details.pincode}\n`;
+    message += `Customization Name: ${details.customizationName || "Not provided"}\n`;
+    message += `Customization Color: ${details.customizationColor || "Not selected"}\n`;
+    message += `Customization Photo: ${details.customizationPhotoName || "Not uploaded"}\n`;
+    message += `Customization Note: ${details.customization}\nDelivery Note: ${details.deliveryNote}\n\n`;
+
+    message += `Items\n`;
 
     cart.forEach((item, i) => {
         const qty = Number(item.qty || 1);
         const subtotal = item.price * qty;
+        const itemCustomization = cleanCustomizationData(item.customization);
+        total += subtotal;
+
         message += `${i + 1}. ${item.name} x ${qty} - ${money(subtotal)}\n`;
+        if (hasCustomizationData(itemCustomization)) {
+            message += `   Name: ${itemCustomization.customName || "Not provided"}\n`;
+            message += `   Color: ${itemCustomization.color || "Not selected"}\n`;
+            message += `   Photo: ${itemCustomization.photoName || "Not uploaded"}\n`;
+        }
     });
 
-    const total = getCartTotal(cart);
+    message += `\nOffer: ${offer}`;
+    message += `\nTotal: ${money(total)}`;
+
     const orderData = {
         items: cart,
-        total: total,
+        total,
         customer: details,
-        offer: offer,
-        status: "Pending"
+        offer
     };
 
     if (useBackend) {
-        apiRequest("/api/orders", {
-            method: "POST",
-            body: JSON.stringify(orderData)
-        }).then(data => {
-            finishCheckout(data.order, message);
-        }).catch(error => {
-            checkoutMsg.innerText = error.message + ". Please login before checkout.";
-        });
-        return;
+        try {
+            if (checkoutMsg) checkoutMsg.innerText = "Saving order to database...";
+            const order = await saveOrderToPhp(orderData);
+            saveLocalOrderSnapshot(order);
+            finishCheckout(order, message);
+            return;
+        } catch (error) {
+            if (!isApiUnavailableError(error)) {
+                if (checkoutMsg) checkoutMsg.innerText = "Order not saved: " + error.message;
+                return;
+            }
+
+            console.warn(error.message);
+        }
     }
 
-    const orderId = nextOrderId();
-    const order = {
-        ...orderData,
-        id: orderId,
-        date: new Date().toLocaleString()
-    };
-    const orders = JSON.parse(localStorage.getItem("orders")) || [];
-    orders.push(order);
-    localStorage.setItem("orders", JSON.stringify(orders));
+    if (useBackend) {
+        try {
+            if (checkoutMsg) checkoutMsg.innerText = "Saving order...";
+            const data = await apiRequest("/api/orders", {
+                method: "POST",
+                body: JSON.stringify(orderData)
+            });
+            finishCheckout(data.order, message);
+            return;
+        } catch (error) {
+            if (!isApiUnavailableError(error)) {
+                if (checkoutMsg) checkoutMsg.innerText = error.message + ". Please login before checkout.";
+                return;
+            }
+
+            console.warn(error.message);
+        }
+    }
+
+    const order = createLocalOrder(orderData);
     finishCheckout(order, message);
 }
-
 function finishCheckout(order, baseMessage) {
     const message = `${baseMessage}\nOrder ID: ${order.id}\nTotal: ${money(order.total)}\nOffer: ${order.offer || "No offer"}`;
     localStorage.setItem("lastOrderId", order.id);
@@ -1187,6 +3509,7 @@ function finishCheckout(order, baseMessage) {
     localStorage.removeItem("cart");
     sessionStorage.removeItem("pendingCheckout");
     sessionStorage.removeItem("pendingCheckoutDetails");
+    orderPhotoStorage.checkout = null;
     updateCartCount();
     window.location.href = "success.html";
 }
@@ -1195,20 +3518,36 @@ async function loadOrderSuccess() {
     const orderId = localStorage.getItem("lastOrderId");
     const orders = await getOrdersData();
     const order = orders.find(item => item.id === orderId) || orders[orders.length - 1];
+    const status = document.getElementById("successStatus");
 
     if (!order) {
         document.getElementById("successOrderId").innerText = "No recent order";
         document.getElementById("successTotal").innerText = "Place an order to see confirmation details.";
+        if (status) status.innerText = "";
         return;
     }
 
     document.getElementById("successOrderId").innerText = order.id || "Order";
     document.getElementById("successTotal").innerText = "Total: " + money(order.total);
     document.getElementById("successOffer").innerText = "Offer: " + (order.offer || "No offer");
+    if (status) status.innerText = "Status: " + normalizeOrderStatus(order.status);
 }
 
 async function getOrdersData() {
+    const preferDatabaseRecords = localStorage.getItem("userRole") === "admin"
+        || Boolean(document.getElementById("adminOrders"));
+
     if (useBackend) {
+        if (preferDatabaseRecords) {
+            try {
+                const data = await phpOrderRequest("orders.php");
+                localStorage.setItem("orders", JSON.stringify(data.orders));
+                return data.orders;
+            } catch (error) {
+                console.warn(error.message);
+            }
+        }
+
         try {
             const data = await apiRequest("/api/orders");
             localStorage.setItem("orders", JSON.stringify(data.orders));
@@ -1218,12 +3557,13 @@ async function getOrdersData() {
         }
     }
 
-    return JSON.parse(localStorage.getItem("orders")) || [];
+    return getLocalOrders();
 }
 
 async function loadOrders() {
     const orders = await getOrdersData();
     const container = document.getElementById("orderList");
+    const isAdmin = localStorage.getItem("userRole") === "admin";
 
     container.innerHTML = "";
 
@@ -1235,56 +3575,136 @@ async function loadOrders() {
     orders.forEach((order, index) => {
         let itemsHTML = "";
 
-        order.items.forEach(item => {
+        (order.items || []).forEach(item => {
             const qty = Number(item.qty || 1);
-            itemsHTML += `<p>- ${item.name} x ${qty} - ${money(item.price * qty)}</p>`;
+            itemsHTML += `
+                <p>- ${item.name} x ${qty} - ${money(item.price * qty)}</p>
+                ${customizationDetailsHtml(item.customization)}
+            `;
         });
 
+        const status = normalizeOrderStatus(order.status);
+        const adminActions = isAdmin
+            ? `<button onclick="updateStatus(${index})">Update Status</button>
+               <button onclick="deleteOrder(${index})">Delete</button>`
+            : "";
+
         container.innerHTML += `
-            <div class="card fade-in">
+            <div class="card fade-in order-card">
                 <h3>${order.id || "Order #" + (index + 1)}</h3>
                 ${itemsHTML}
                 <hr>
                 <p><b>Total:</b> ${money(order.total)}</p>
                 <p><b>Offer:</b> ${order.offer || "No offer"}</p>
+                ${customizationDetailsHtml({
+                    customName: order.customer?.customizationName,
+                    color: order.customer?.customizationColor,
+                    photoName: order.customer?.customizationPhotoName,
+                    photoData: order.customer?.customizationPhotoData
+                })}
                 <small>${order.date}</small>
-                <p class="status" style="color:${
-                    order.status === "Pending" ? "orange" :
-                    order.status === "Confirmed" ? "blue" : "green"
-                }">Status: ${order.status}</p>
-                <button onclick="updateStatus(${index})">Update Status</button>
+                <p class="status ${getOrderStatusClass(status)}">Status: ${status}</p>
+                ${buildOrderTrackingHtml(order)}
                 <button onclick="reorder(${index})">Reorder</button>
-                <button onclick="deleteOrder(${index})">Delete</button>
+                ${adminActions}
             </div>
        `;
     });
 }
 
+function getOrderStatusClass(status) {
+    status = normalizeOrderStatus(status);
+    if (status === "Making") return "is-making";
+    if (status === "Shipped") return "is-shipped";
+    if (status === "Delivered") return "is-delivered";
+    return "is-pending";
+}
+
+function buildOrderTrackingHtml(order) {
+    const status = normalizeOrderStatus(order.status);
+    const activeIndex = orderStatuses.indexOf(status);
+    const steps = [
+        { key: "Pending", label: "Pending", time: order.placedAt || order.date },
+        { key: "Making", label: "Making", time: order.makingAt || order.confirmedAt },
+        { key: "Shipped", label: "Shipped", time: order.shippedAt },
+        { key: "Delivered", label: "Delivered", time: order.deliveredAt }
+    ].map((step, index) => ({
+        ...step,
+        done: index <= activeIndex
+    }));
+    const isActive = status !== "Pending";
+    const note = isActive
+        ? `Tracking ID: ${order.id || "Not provided"}`
+        : "Tracking starts after the admin updates your order.";
+
+    return `
+        <div class="tracking-box ${isActive ? "is-active" : "is-waiting"}">
+            <p><b>Tracking:</b> ${note}</p>
+            <div class="tracking-steps">
+                ${steps.map(step => `
+                    <div class="tracking-step ${step.done ? "done" : ""}">
+                        <span></span>
+                        <div>
+                            <b>${step.label}</b>
+                            ${step.time ? `<small>${step.time}</small>` : ""}
+                        </div>
+                    </div>
+                `).join("")}
+            </div>
+        </div>
+    `;
+}
+
 function reorder(index) {
-    const orders = JSON.parse(localStorage.getItem("orders")) || [];
+    const orders = getLocalOrders();
+    if (!orders[index]) return;
+
     localStorage.setItem("cart", JSON.stringify(orders[index].items));
     alert("Items added to cart");
     window.location.href = "cart.html";
 }
 
+function orderRecordId(order) {
+    return order?.dbId || order?.id || "";
+}
+
 async function deleteOrder(index) {
     const orders = await getOrdersData();
     const order = orders[index];
+    if (!order) return;
 
-    if (useBackend && order?.id) {
+    if (useBackend && orderRecordId(order)) {
+        try {
+            await phpOrderRequest("orders.php?id=" + encodeURIComponent(orderRecordId(order)), { method: "DELETE" });
+            if (document.getElementById("adminOrders")) await loadAdminOrders();
+            else await loadOrders();
+            return;
+        } catch (error) {
+            if (!isApiUnavailableError(error)) {
+                alert(error.message);
+                return;
+            }
+
+            console.warn(error.message);
+        }
+
         try {
             await apiRequest("/api/orders/" + encodeURIComponent(order.id), { method: "DELETE" });
             if (document.getElementById("adminOrders")) await loadAdminOrders();
             else await loadOrders();
             return;
         } catch (error) {
-            alert(error.message);
-            return;
+            if (!isApiUnavailableError(error)) {
+                alert(error.message);
+                return;
+            }
+
+            console.warn(error.message);
         }
     }
 
     orders.splice(index, 1);
-    localStorage.setItem("orders", JSON.stringify(orders));
+    saveLocalOrders(orders);
 
     if (document.getElementById("adminOrders")) {
         loadAdminOrders();
@@ -1303,29 +3723,60 @@ window.addEventListener("scroll", () => {
 
 async function updateStatus(index) {
     const orders = await getOrdersData();
-    const current = orders[index].status || "Pending";
-    const next =
-        current === "Pending" ? "Confirmed" :
-        current === "Confirmed" ? "Delivered" :
-        "Delivered";
+    if (!orders[index]) return;
 
-    if (useBackend && orders[index]?.id) {
+    const current = normalizeOrderStatus(orders[index].status);
+    const next = nextOrderStatus(current);
+    const shouldSendConfirmation = current === "Pending" && next === "Making";
+    const confirmationWindow = shouldSendConfirmation && getWhatsAppPhoneNumber(orders[index].customer?.phone)
+        ? window.open("", "_blank")
+        : null;
+
+    if (useBackend && orderRecordId(orders[index])) {
         try {
-            await apiRequest("/api/orders/" + encodeURIComponent(orders[index].id), {
+            const data = await phpOrderRequest("orders.php?id=" + encodeURIComponent(orderRecordId(orders[index])), {
                 method: "PATCH",
                 body: JSON.stringify({ status: next })
             });
+            const updatedOrder = data.order || applyOrderStatus({ ...orders[index] }, next);
+            if (shouldSendConfirmation) openOrderConfirmationWhatsApp(updatedOrder, confirmationWindow);
             if (document.getElementById("adminOrders")) await loadAdminOrders();
             else await loadOrders();
             return;
         } catch (error) {
-            alert(error.message);
+            if (!isApiUnavailableError(error)) {
+                if (confirmationWindow && !confirmationWindow.closed) confirmationWindow.close();
+                alert(error.message);
+                return;
+            }
+
+            console.warn(error.message);
+        }
+
+        try {
+            const data = await apiRequest("/api/orders/" + encodeURIComponent(orders[index].id), {
+                method: "PATCH",
+                body: JSON.stringify({ status: next })
+            });
+            const updatedOrder = data.order || applyOrderStatus({ ...orders[index] }, next);
+            if (shouldSendConfirmation) openOrderConfirmationWhatsApp(updatedOrder, confirmationWindow);
+            if (document.getElementById("adminOrders")) await loadAdminOrders();
+            else await loadOrders();
             return;
+        } catch (error) {
+            if (!isApiUnavailableError(error)) {
+                if (confirmationWindow && !confirmationWindow.closed) confirmationWindow.close();
+                alert(error.message);
+                return;
+            }
+
+            console.warn(error.message);
         }
     }
 
-    orders[index].status = next;
-    localStorage.setItem("orders", JSON.stringify(orders));
+    applyOrderStatus(orders[index], next);
+    saveLocalOrders(orders);
+    if (shouldSendConfirmation) openOrderConfirmationWhatsApp(orders[index], confirmationWindow);
 
     if (document.getElementById("adminOrders")) {
         loadAdminOrders();
@@ -1334,20 +3785,50 @@ async function updateStatus(index) {
     }
 }
 
-function checkAdmin() {
-    const user = localStorage.getItem("loggedInUser");
-    const role = localStorage.getItem("userRole");
+async function openOrderConfirmationWhatsAppByIndex(index) {
+    const popupWindow = window.open("", "_blank");
+    const orders = await getOrdersData();
+    const order = orders[index];
 
-    if (useBackend && role !== "admin") {
-        alert("Access Denied");
-        window.location.href = "login.html";
+    if (!order) {
+        if (popupWindow && !popupWindow.closed) popupWindow.close();
         return;
     }
 
-    if (!useBackend && role !== "admin" && user !== "admin") {
-        alert("Access Denied");
-        window.location.href = "login.html";
+    openOrderConfirmationWhatsApp(order, popupWindow);
+}
+
+function checkAdmin() {
+    const user = localStorage.getItem("loggedInUser");
+    const role = localStorage.getItem("userRole");
+    const isAdminUser = isAdminLoginId(user);
+
+    if (role === "admin" || isAdminUser) {
+        if (isAdminUser && role !== "admin") {
+            localStorage.setItem("userRole", "admin");
+        }
+        return true;
     }
+
+    if (!user) {
+        requireLogin("admin.html");
+        return;
+    }
+
+    alert("Admin access required. Please login with smartornaments.shop@gmail.com / admin123.");
+    window.location.href = "login.html?redirect=admin.html";
+    return false;
+}
+
+async function initAdminPage() {
+    if (!checkAdmin()) return;
+
+    showUser();
+    await loadAdminNotifications();
+    await loadAdminProducts();
+    await loadAdminOrders();
+    await loadAdminUsers();
+    updateCartCount();
 }
 
 let currentOrderFilter = "all";
@@ -1368,11 +3849,20 @@ async function loadAdminOrders() {
     const allRevenue = orders.reduce((sum, order) => sum + Number(order.total || 0), 0);
     const visibleOrders = currentOrderFilter === "all"
         ? orders
-        : orders.filter(order => (order.status || "Pending") === currentOrderFilter);
+        : orders.filter(order => normalizeOrderStatus(order.status) === currentOrderFilter);
+    const totalOrders = document.getElementById("totalOrders");
+    const totalRevenue = document.getElementById("totalRevenue");
+    const adminBestSeller = document.getElementById("adminBestSeller");
+    const bestSeller = getBestSellerFromOrders(orders, getProducts());
 
     container.innerHTML = "";
-    document.getElementById("totalOrders").innerText = orders.length;
-    document.getElementById("totalRevenue").innerText = money(allRevenue);
+    if (totalOrders) totalOrders.innerText = orders.length;
+    if (totalRevenue) totalRevenue.innerText = money(allRevenue);
+    if (adminBestSeller) {
+        adminBestSeller.innerText = bestSeller
+            ? `${bestSeller.name} (${bestSeller.quantity})`
+            : "No orders yet";
+    }
 
     if (orders.length === 0) {
         container.innerHTML = "<p>No orders yet</p>";
@@ -1386,10 +3876,17 @@ async function loadAdminOrders() {
     visibleOrders.forEach((order) => {
         const index = orders.indexOf(order);
         let itemsHTML = "";
+        const status = normalizeOrderStatus(order.status);
+        const confirmationAction = status !== "Pending"
+            ? `<button onclick="openOrderConfirmationWhatsAppByIndex(${index})">WhatsApp Update</button>`
+            : "";
 
-        order.items.forEach(item => {
+        (order.items || []).forEach(item => {
             const qty = Number(item.qty || 1);
-            itemsHTML += `<p>- ${item.name} x ${qty} - ${money(item.price * qty)}</p>`;
+            itemsHTML += `
+                <p>- ${item.name} x ${qty} - ${money(item.price * qty)}</p>
+                ${customizationDetailsHtml(item.customization)}
+            `;
         });
 
         container.innerHTML += `
@@ -1397,21 +3894,30 @@ async function loadAdminOrders() {
                 <h3>${order.id || "Order #" + (index + 1)}</h3>
                 <p><b>Customer:</b> ${order.customer?.name || "Customer"}</p>
                 <p><b>Phone:</b> ${order.customer?.phone || "Not provided"}</p>
-                <p><b>Address:</b> ${order.customer?.address || "Not provided"}</p>
+                <p><b>Address Type:</b> ${order.customer?.addressType || "Not provided"}</p>
+                <p><b>Flat / House No:</b> ${order.customer?.flatNo || "Not provided"}</p>
+                <p><b>Area / Street:</b> ${order.customer?.areaStreet || order.customer?.buildingStreet || order.customer?.address || "Not provided"}</p>
                 <p><b>State:</b> ${order.customer?.state || "Not provided"}</p>
                 <p><b>District:</b> ${order.customer?.district || "Not provided"}</p>
-                <p><b>Building No & Street Name:</b> ${order.customer?.buildingStreet || "Not provided"}</p>
                 <p><b>Pincode:</b> ${order.customer?.pincode || "Not provided"}</p>
-                <p><b>Customization:</b> ${order.customer?.customization || "None"}</p>
+                <p><b>Customization Name:</b> ${order.customer?.customizationName || "Not provided"}</p>
+                <p><b>Customization Color:</b> ${order.customer?.customizationColor || "Not selected"}</p>
+                <p><b>Customization Photo:</b> ${order.customer?.customizationPhotoName || "Not uploaded"}</p>
+                ${order.customer?.customizationPhotoData ? `<div class="customization-details"><img src="${order.customer.customizationPhotoData}" alt="Customization photo"></div>` : ""}
+                <p><b>Customization Note:</b> ${order.customer?.customization || "None"}</p>
                 <p><b>Delivery Note:</b> ${order.customer?.deliveryNote || "None"}</p>
                 ${itemsHTML}
                 <hr>
                 <p><b>Total:</b> ${money(order.total)}</p>
                 <p><b>Offer:</b> ${order.offer || "No offer"}</p>
-                <p><b>Status:</b> ${order.status || "Pending"}</p>
+                <p class="status ${getOrderStatusClass(status)}">Status: ${status}</p>
+                ${status === "Making" ? `<p><b>Making:</b> ${order.makingAt || order.confirmedAt || "Just now"}</p>` : ""}
+                ${status === "Shipped" ? `<p><b>Shipped:</b> ${order.shippedAt || "Just now"}</p>` : ""}
+                ${status === "Delivered" ? `<p><b>Delivered:</b> ${order.deliveredAt || "Completed"}</p>` : ""}
                 <small>${order.date}</small>
                 <br><br>
                 <button onclick="updateStatus(${index})">Change Status</button>
+                ${confirmationAction}
                 <button onclick="deleteOrder(${index})">Delete</button>
             </div>
         `;
@@ -1434,4 +3940,7 @@ async function logout(event) {
     localStorage.removeItem("loggedInUser");
     localStorage.removeItem("userRole");
     window.location.href = "login.html";
+}
+function toggleNav() {
+    document.querySelector("nav").classList.toggle("open");
 }

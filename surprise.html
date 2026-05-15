@@ -6,7 +6,7 @@
     <title>Surprise Gift - SmartOrnaments</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
-<body onload="showUser(); updateCartCount();">
+<body class="surprise-page" onload="showUser(); updateCartCount();">
     <nav>
         <h2 class="brand">
             <img src="images/Logo.png" alt="SmartOrnaments logo" class="brand-logo">
@@ -14,44 +14,70 @@
         </h2>
         <button class="nav-toggle" onclick="toggleNav(this)" aria-label="Toggle menu">Menu</button>
         <ul>
+            <li><a href="index.html">Home</a></li>
+            <li><a href="products.html">Products</a></li>
             <li><a href="cart.html">Cart <span id="cartCount">0</span></a></li>
             <li><a href="orders.html">Orders</a></li>
         </ul>
-        <a href="index.html" class="back-link">Back</a>
         <div id="userDisplay"></div>
     </nav>
 
-    <section class="surprise-hero">
+    <main>
+    <section class="surprise-hero" id="gift-finder">
         <div class="surprise-hero-content">
-            <h1>Find the Perfect Gift for Every Emotion &#10084;&#65039;</h1>
-            <a href="#gift-finder" class="btn primary-btn">Find My Gift</a>
+            <span class="eyebrow">Surprise Gift Finder</span>
+            <h1>Choose a gift that matches the moment.</h1>
+            <p>Pick the relationship, occasion, and budget to get a SmartOrnaments suggestion that feels personal.</p>
+
+            <div class="surprise-product-strip" aria-label="SmartOrnaments gift examples">
+                <img src="images/Resin Keychain/Resin Dual Color Keychain.jpg" alt="Personalized resin keychain">
+                <img src="images/Braclet/Couple Braclet.jpg" alt="Personalized couple bracelet">
+            </div>
         </div>
+
+        <section class="gift-finder-panel" aria-labelledby="giftFinderTitle">
+            <h2 id="giftFinderTitle">Find My Gift</h2>
+
+            <div class="finder-grid">
+                <label class="finder-field" for="name">
+                    <span>Recipient</span>
+                    <input type="text" id="name" placeholder="Friend name">
+                </label>
+
+                <label class="finder-field" for="budget">
+                    <span>Budget</span>
+                    <input type="number" id="budget" placeholder="Enter budget" min="1">
+                </label>
+
+                <label class="finder-field" for="relationship">
+                    <span>Relationship</span>
+                    <select id="relationship">
+                        <option value="friend">Friend</option>
+                        <option value="family">Family</option>
+                        <option value="partner">Partner</option>
+                        <option value="sibling">Sibling</option>
+                    </select>
+                </label>
+
+                <label class="finder-field" for="occasion">
+                    <span>Occasion</span>
+                    <select id="occasion">
+                        <option value="birthday">Birthday</option>
+                        <option value="love">Love</option>
+                        <option value="friend">Friendship</option>
+                    </select>
+                </label>
+            </div>
+
+            <button type="button" class="btn primary-btn finder-button" onclick="generateGift()">Find My Gift</button>
+
+            <div class="finder-result">
+                <h3 id="result">Ready when you are.</h3>
+                <button id="orderBtn" type="button" class="btn order-btn" style="display:none;" onclick="orderProduct()">Order Now</button>
+            </div>
+        </section>
     </section>
-
-    <section class="products gift-finder" id="gift-finder">
-        <h2>Surprise Gift Finder</h2>
-
-        <input type="text" id="name" placeholder="Friend name"><br><br>
-        <input type="number" id="budget" placeholder="Enter budget"><br><br>
-        <select id="relationship">
-            <option value="friend">Friend</option>
-            <option value="family">Family</option>
-            <option value="partner">Partner</option>
-            <option value="sibling">Sibling</option>
-        </select>
-        <br><br>
-        <select id="occasion">
-            <option value="birthday">Birthday</option>
-            <option value="love">Love</option>
-            <option value="friend">Friendship</option>
-        </select>
-        <br><br>
-
-        <button onclick="generateGift()">Find My Gift</button>
-
-        <h3 id="result"></h3>
-        <button id="orderBtn" style="display:none;" onclick="orderProduct()">Order Now</button>
-    </section>
+    </main>
 
     <script src="js/script.js"></script>
 </body>

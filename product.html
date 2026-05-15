@@ -23,9 +23,30 @@
 
     <section class="product-details">
         <img id="productImg" src="" alt="Product">
+        <div id="productGallery" class="product-gallery"></div>
         <h2 id="productName"></h2>
-        <p id="productPrice"></p>
+        <div class="price">
+            ₹ <span id="productPrice"></span>
+        </div>
+        <input type="number" id="qty" value="1" min="1">
         <p id="productDescription"></p>
+
+        <div class="customization-panel">
+            <h3>Customize This Product</h3>
+            <input type="text" id="customName" placeholder="Name to add on product">
+            <select id="customColor" aria-label="Preferred color">
+                <option value="">Select color</option>
+                <option value="Pink">Pink</option>
+                <option value="Red">Red</option>
+                <option value="Gold">Gold</option>
+                <option value="Silver">Silver</option>
+                <option value="White">White</option>
+                <option value="Black">Black</option>
+                <option value="Blue">Blue</option>
+            </select>
+            <input type="file" id="customPhoto" accept="image/*" onchange="handleCustomizationPhoto(this)">
+            <div id="customPhotoPreview" class="photo-preview"></div>
+        </div>
 
         <button onclick="orderProduct()">Order via WhatsApp</button>
 

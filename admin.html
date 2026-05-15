@@ -2,79 +2,14 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="refresh" content="0; url=admin/login.php">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Panel - SmartOrnaments</title>
-    <link rel="stylesheet" href="css/style.css">
+    <title>Admin | SmartOrnaments</title>
 </head>
-
-<body onload="checkAdmin(); showUser(); loadAdminProducts(); loadAdminOrders(); updateCartCount();">
-<nav>
-    <h2 class="brand">
-        <img src="images/Logo.png" alt="SmartOrnaments logo" class="brand-logo">
-        <span class="brand-name">SmartOrnaments</span>
-    </h2>
-    <button class="nav-toggle" onclick="toggleNav(this)" aria-label="Toggle menu">Menu</button>
-
-    <div style="display:flex; gap:20px; align-items:center;">
-        <span id="userDisplay"></span>
-        <a href="index.html">Home</a>
-        <a href="cart.html">Cart <span id="cartCount">0</span></a>
-        <a href="orders.html">Orders</a>
-        <a href="#" onclick="logout()" class="login-btn">Logout</a>
-    </div>
-</nav>
-
-<section class="products">
-    <h2>Admin Dashboard</h2>
-
-    <div style="display:flex; gap:20px; margin-bottom:20px; flex-wrap:wrap; justify-content:center;">
-        <div class="card">
-            <h3>Total Orders</h3>
-            <p id="totalOrders">0</p>
-        </div>
-
-        <div class="card">
-            <h3>Total Revenue</h3>
-            <p id="totalRevenue">Rs. 0</p>
-        </div>
-    </div>
-
-    <h2>Manage Products</h2>
-    <div class="admin-product-form">
-        <input type="hidden" id="productId">
-        <input type="text" id="adminProductName" placeholder="Product name">
-        <input type="number" id="adminProductPrice" placeholder="Price">
-        <input type="text" id="adminProductImage" placeholder="Image path, example: images/Keychain.jpeg">
-        <select id="adminProductType">
-            <option value="love">Love</option>
-            <option value="friend">Friendship</option>
-            <option value="birthday">Birthday</option>
-            <option value="sorry">Sorry</option>
-        </select>
-        <textarea id="adminProductDescription" placeholder="Short product description"></textarea>
-        <label class="checkbox-row">
-            <input type="checkbox" id="adminProductFeatured">
-            Featured product
-        </label>
-        <div class="admin-form-actions">
-            <button onclick="saveAdminProduct()">Save Product</button>
-            <button onclick="resetProductForm()" type="button">Clear</button>
-        </div>
-        <p id="productAdminMsg"></p>
-    </div>
-
-    <div id="adminProducts" class="product-container"></div>
-
-    <h2>All Orders</h2>
-    <div class="order-filters">
-        <button onclick="setOrderFilter('all')" class="active">All</button>
-        <button onclick="setOrderFilter('Pending')">Pending</button>
-        <button onclick="setOrderFilter('Confirmed')">Confirmed</button>
-        <button onclick="setOrderFilter('Delivered')">Delivered</button>
-    </div>
-    <div id="adminOrders"></div>
-</section>
-
-<script src="js/script.js"></script>
+<body>
+    <p>Redirecting to admin login...</p>
+    <script>
+        window.location.href = "admin/login.php";
+    </script>
 </body>
 </html>

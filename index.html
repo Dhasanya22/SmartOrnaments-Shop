@@ -6,7 +6,7 @@
     <title>SmartOrnaments Shop</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
-<body onload="showUser(); updateCartCount(); renderFeaturedProducts();">
+<body onload="showUser(); updateCartCount(); renderCategoryTiles(); renderFeaturedProducts(); renderBestSellerSection();">
     <nav>
         <h2 class="brand">
             <img src="images/Logo.png" alt="SmartOrnaments logo" class="brand-logo">
@@ -31,16 +31,16 @@
     <section class="hero">
         <div class="hero-content">
             <span class="eyebrow">Personalized gifts made for real moments</span>
-            <h1>SmartOrnaments Shop</h1>
-            <p>Custom keychains, bracelets, and keepsakes crafted with names, messages, and memories.</p>
+            <h1>Crafted Memories That Stay Forever</h1>
+            <p>Every ornament is handmade to preserve your favorite moments, emotions, and relationships beautifully.</p>
             <div class="hero-actions">
                 <a href="products.html" class="btn primary-btn">Shop Now</a>
                 <a href="surprise.html" class="btn">Find a Gift</a>
             </div>
         </div>
         <div class="hero-showcase" aria-label="Featured SmartOrnaments products">
-            <img src="images/Keychain.jpeg" alt="Personalized keychain">
-            <img src="images/Braclet.jpeg" alt="Personalized bracelet">
+            <img src="images/Resin Keychain/Resin Transparent Keychain.jpg" alt="Personalized resin keychain">
+            <img src="images/Braclet/Braclet with Charm.jpg" alt="Personalized charm bracelet">
         </div>
     </section>
 
@@ -53,13 +53,36 @@
         <p id="offer" class="offer-result"></p>
     </section>
 
-    <section class="emotion">
-        <h2>Shop by Emotion</h2>
-        <div class="emotion-container">
-            <button onclick="filterEmotion('love')">Love</button>
-            <button onclick="filterEmotion('friend')">Friendship</button>
-            <button onclick="filterEmotion('birthday')">Birthday</button>
-            <button onclick="filterEmotion('sorry')">Sorry</button>
+    <section class="emotion category-section">
+        <div class="section-heading">
+            <h2>Shop by Category</h2>
+            <a href="products.html">Explore all</a>
+        </div>
+        <div class="category-grid" data-category-tiles></div>
+    </section>
+
+    <section class="festival-collections">
+        <div class="section-heading">
+            <h2>Festival Collections</h2>
+            <a href="products.html">View all</a>
+        </div>
+        <div class="collection-grid">
+            <button onclick="filterFestival('birthday')">
+                <span>Birthday</span>
+                <small>Names, photos, and surprise gifts</small>
+            </button>
+            <button onclick="filterFestival('anniversary')">
+                <span>Anniversary</span>
+                <small>Custom keepsakes for special dates</small>
+            </button>
+            <button onclick="filterFestival('friendship-day')">
+                <span>Friendship Day</span>
+                <small>Matching pieces and friendly notes</small>
+            </button>
+            <button onclick="filterFestival('valentines-day')">
+                <span>Valentine's Day</span>
+                <small>Love-themed colors and messages</small>
+            </button>
         </div>
     </section>
 
@@ -70,6 +93,14 @@
         </div>
 
         <div class="product-container" id="featuredProducts"></div>
+    </section>
+
+    <section class="best-seller">
+        <div class="section-heading">
+            <h2>Best Seller</h2>
+            <a href="products.html">Shop products</a>
+        </div>
+        <div id="bestSellerProduct" class="best-seller-box"></div>
     </section>
 
     <section class="why">

@@ -35,12 +35,33 @@
         <h3>Checkout Details</h3>
         <input type="text" id="userName" placeholder="Full name" oninput="updateOrderSummary()">
         <input type="tel" id="phone" placeholder="Phone number" oninput="updateOrderSummary()">
-        <input type="text" id="address" placeholder="Delivery address" oninput="updateOrderSummary()">
-        <input type="text" id="state" placeholder="State" oninput="updateOrderSummary()">
-        <input type="text" id="district" placeholder="District" oninput="updateOrderSummary()">
-        <input type="text" id="buildingStreet" placeholder="Building no & street name" oninput="updateOrderSummary()">
+        <input type="text" id="flatNo" placeholder="Flat / house no" oninput="updateOrderSummary()">
+        <input type="text" id="areaStreet" placeholder="Area / street" oninput="updateOrderSummary()">
+        <select id="addressType" aria-label="Address type" onchange="updateOrderSummary()">
+            <option value="Home">Home</option>
+            <option value="Work">Work</option>
+        </select>
+        <select id="state" aria-label="State" onchange="handleStateChange()">
+            <option value="">Select state</option>
+        </select>
+        <select id="district" aria-label="District" onchange="updateOrderSummary()" disabled>
+            <option value="">Select state first</option>
+        </select>
         <input type="text" id="pincode" placeholder="Pincode" inputmode="numeric" oninput="updateOrderSummary()">
-        <textarea id="customization" placeholder="Customization message, names, dates, or gift note" oninput="updateOrderSummary()"></textarea>
+        <input type="text" id="customizationName" placeholder="Name for customization" oninput="updateOrderSummary()">
+        <select id="customizationColor" aria-label="Customization color" onchange="updateOrderSummary()">
+            <option value="">Select customization color</option>
+            <option value="Pink">Pink</option>
+            <option value="Red">Red</option>
+            <option value="Gold">Gold</option>
+            <option value="Silver">Silver</option>
+            <option value="White">White</option>
+            <option value="Black">Black</option>
+            <option value="Blue">Blue</option>
+        </select>
+        <input type="file" id="customizationPhoto" accept="image/*" onchange="handleCheckoutPhoto(this)">
+        <div id="checkoutPhotoPreview" class="photo-preview"></div>
+        <textarea id="customization" placeholder="Extra customization message, dates, or gift note" oninput="updateOrderSummary()"></textarea>
         <textarea id="deliveryNote" placeholder="Delivery note, landmark, or preferred time" oninput="updateOrderSummary()"></textarea>
         <div class="order-summary">
             <h3>Order Summary</h3>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Order Confirmed - SmartOrnaments</title>
+    <title>Order Placed - SmartOrnaments</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body onload="if (requireLogin()) { loadOrderSuccess(); updateCartCount(); showUser(); }">
@@ -25,11 +25,12 @@
 <section class="success-panel">
     <span class="eyebrow">Order placed</span>
     <h1>Thank you for ordering.</h1>
-    <p>Your WhatsApp order message is ready. Keep this order ID for tracking.</p>
+    <p>Your WhatsApp order message is ready. Tracking updates from Pending to Making, Shipped, and Delivered.</p>
     <div class="success-card">
         <h2 id="successOrderId">Order ID</h2>
         <p id="successTotal"></p>
         <p id="successOffer"></p>
+        <p id="successStatus"></p>
     </div>
     <div class="success-actions">
         <a href="orders.html" class="btn primary-btn">View Orders</a>

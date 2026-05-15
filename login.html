@@ -54,33 +54,42 @@
         <p id="authSubtitle" class="auth-subtitle">Enter your account details to continue.</p>
 
         <form id="authForm" onsubmit="submitAuth(event)" novalidate>
-            <label for="username">Username</label>
-            <input type="text" id="username" placeholder="Enter username" autocomplete="username" required>
+            <div id="nameField" hidden>
+                <label for="name">Name</label>
+                <input type="text" id="name" name="name" placeholder="Enter name" autocomplete="name">
+            </div>
+
+            <label for="email">Email or admin username</label>
+            <input type="text" id="email" name="email" placeholder="smartornaments.shop@gmail.com" autocomplete="username" required>
 
             <label for="password">Password</label>
             <div class="password-field">
-                <input type="password" id="password" placeholder="Enter password" autocomplete="current-password" required>
+                <input type="password" id="password" name="password" placeholder="Enter password" autocomplete="current-password" required>
                 <button type="button" onclick="togglePassword(this)">Show</button>
             </div>
 
             <div class="auth-meta">
                 <label class="remember-row">
                     <input type="checkbox" id="rememberUser">
-                    Remember username
+                    Remember email
                 </label>
+
                 <a href="admin.html">Admin panel</a>
             </div>
 
             <div class="auth-actions">
                 <button id="authSubmit" type="submit">Login</button>
-                <button id="authSwitch" type="button" class="secondary-action" onclick="toggleAuthMode()">Create account</button>
+                <button id="authSwitch" type="button" class="secondary-action" onclick="toggleAuthMode()">
+                    Create account
+                </button>
             </div>
+
         </form>
 
         <p id="msg" class="auth-message"></p>
     </section>
 </main>
 
-<script src="js/script.js"></script>
+<script src="js/script.js?v=admin-access-2"></script>
 </body>
 </html>
