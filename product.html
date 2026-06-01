@@ -3,6 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Customize SmartOrnaments personalized gifts with name, color, photo preview, wishlist, reviews, and cart checkout.">
+    <meta name="theme-color" content="#ff4d6d">
+    <link rel="canonical" href="https://smartornaments.in/product.html">
+    <link rel="manifest" href="manifest.webmanifest">
     <title>Product Details - SmartOrnaments</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
@@ -15,6 +19,7 @@
         <button class="nav-toggle" onclick="toggleNav(this)" aria-label="Toggle menu">Menu</button>
         <ul>
             <li><a href="products.html">Back</a></li>
+            <li><a href="wishlist.html">Wishlist</a></li>
             <li><a href="cart.html">Cart <span id="cartCount">0</span></a></li>
             <li><a href="orders.html">Orders</a></li>
         </ul>
@@ -38,8 +43,8 @@
 
         <div class="customization-panel">
             <h3>Customize This Product</h3>
-            <input type="text" id="customName" placeholder="Name to add on product">
-            <select id="customColor" aria-label="Preferred color">
+            <input type="text" id="customName" placeholder="Name to add on product" oninput="updatePersonalizationPreview()">
+            <select id="customColor" aria-label="Preferred color" onchange="updatePersonalizationPreview()">
                 <option value="">Select color</option>
                 <option value="Pink">Pink</option>
                 <option value="Red">Red</option>
@@ -51,6 +56,14 @@
             </select>
             <input type="file" id="customPhoto" accept="image/*" onchange="handleCustomizationPhoto(this)">
             <div id="customPhotoPreview" class="photo-preview"></div>
+            <div id="personalizationPreview" class="personalization-preview">
+                <span class="preview-swatch"></span>
+                <div>
+                    <strong class="preview-name">Your Name</strong>
+                    <small>Live personalization preview</small>
+                </div>
+                <img alt="Uploaded personalization preview">
+            </div>
         </div>
 
         <button onclick="orderProduct()">Order via WhatsApp</button>
@@ -65,9 +78,28 @@
         <br><br>
 
         <button onclick="generateMessage()">Generate Message</button>
+        <button id="productWishlistButton" type="button" onclick="toggleWishlist(localStorage.getItem('productId'))">Add to Wishlist</button>
         <button onclick="addCurrentProductToCart()">Add to Cart</button>
 
         <p id="msg"></p>
+
+        <section class="product-review-panel">
+            <h3>Reviews & Ratings</h3>
+            <p id="reviewSummary">No reviews yet</p>
+            <form class="review-form" onsubmit="submitProductReview(event)">
+                <select id="reviewRating" aria-label="Rating">
+                    <option value="5">5 stars</option>
+                    <option value="4">4 stars</option>
+                    <option value="3">3 stars</option>
+                    <option value="2">2 stars</option>
+                    <option value="1">1 star</option>
+                </select>
+                <textarea id="reviewComment" placeholder="Write your review"></textarea>
+                <button type="submit">Submit Review</button>
+            </form>
+            <p id="reviewMessage" class="form-message"></p>
+            <div id="productReviews" class="product-reviews"></div>
+        </section>
     </section>
 
     <script src="js/script.js"></script>

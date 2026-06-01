@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Save SmartOrnaments personalized gifts to your wishlist and move favorite items to cart.">
+    <meta name="theme-color" content="#ff4d6d">
+    <link rel="canonical" href="https://smartornaments.in/wishlist.html">
+    <link rel="manifest" href="manifest.webmanifest">
+    <title>Wishlist - SmartOrnaments</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body onload="showUser(); updateCartCount(); renderWishlist();">
+<nav>
+    <h2 class="brand">
+        <img src="images/Logo.png" alt="SmartOrnaments logo" class="brand-logo">
+        <span class="brand-name">SmartOrnaments</span>
+    </h2>
+    <button class="nav-toggle" onclick="toggleNav(this)" aria-label="Toggle menu">Menu</button>
+
+    <ul>
+        <li><a href="index.html">Home</a></li>
+        <li><a href="products.html">Products</a></li>
+        <li><a href="wishlist.html">Wishlist</a></li>
+        <li><a href="cart.html">Cart <span id="cartCount">0</span></a></li>
+        <li><a href="orders.html">Orders</a></li>
+    </ul>
+
+    <div id="userDisplay"></div>
+</nav>
+
+<main>
+    <section class="products wishlist-page">
+        <div class="section-heading centered-heading">
+            <div>
+                <span class="eyebrow">Saved gifts</span>
+                <h1>Wishlist</h1>
+            </div>
+        </div>
+        <div id="wishlistItems" class="wishlist-list"></div>
+    </section>
+</main>
+
+<script src="js/script.js"></script>
+</body>
+</html>

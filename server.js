@@ -15,6 +15,10 @@ const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "smartornaments.shop@gmail.
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
 const LEGACY_ADMIN_USERNAME = "admin";
 const OWNER_EMAIL = process.env.OWNER_EMAIL || ADMIN_USERNAME;
+const SESSION_TTL_MS = Number(process.env.SESSION_TTL_MS || 1000 * 60 * 60 * 24 * 7);
+const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 60_000);
+const RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_MAX || 120);
+const rateLimitBuckets = new Map();
 
 function nameFromImagePath(image) {
     return String(image || "")
@@ -188,6 +192,9 @@ function ensureDb() {
             orders: [],
             contacts: [],
             notifications: [],
+            wishlists: [],
+            reviews: [],
+            analyticsEvents: [],
             lastOrderNumber: 1000
         });
     }
@@ -231,6 +238,21 @@ function readDb() {
 
     if (!Array.isArray(db.notifications)) {
         db.notifications = [];
+        changed = true;
+    }
+
+    if (!Array.isArray(db.wishlists)) {
+        db.wishlists = [];
+        changed = true;
+    }
+
+    if (!Array.isArray(db.reviews)) {
+        db.reviews = [];
+        changed = true;
+    }
+
+    if (!Array.isArray(db.analyticsEvents)) {
+        db.analyticsEvents = [];
         changed = true;
     }
 
@@ -291,9 +313,40 @@ function isPathInside(parent, target) {
     return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 }
 
+function securityHeaders(contentType = "text/plain") {
+    return {
+        "Content-Type": contentType,
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "SAMEORIGIN",
+        "Referrer-Policy": "strict-origin-when-cross-origin",
+        "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+        "Cross-Origin-Opener-Policy": "same-origin"
+    };
+}
+
 function sendJson(res, status, data) {
-    res.writeHead(status, { "Content-Type": "application/json" });
+    res.writeHead(status, securityHeaders("application/json"));
     res.end(JSON.stringify(data));
+}
+
+function requestIp(req) {
+    return String(req.headers["x-forwarded-for"] || req.socket.remoteAddress || "local").split(",")[0].trim();
+}
+
+function isRateLimited(req) {
+    const key = requestIp(req);
+    const now = Date.now();
+    const bucket = rateLimitBuckets.get(key) || { count: 0, resetAt: now + RATE_LIMIT_WINDOW_MS };
+
+    if (now > bucket.resetAt) {
+        bucket.count = 0;
+        bucket.resetAt = now + RATE_LIMIT_WINDOW_MS;
+    }
+
+    bucket.count += 1;
+    rateLimitBuckets.set(key, bucket);
+
+    return bucket.count > RATE_LIMIT_MAX;
 }
 
 function parseBody(req) {
@@ -318,6 +371,10 @@ function getSession(req, db) {
     const token = header.startsWith("Bearer ") ? header.slice(7) : "";
     const session = db.sessions.find(item => item.token === token);
     if (!session) return null;
+
+    if (session.expiresAt && new Date(session.expiresAt).getTime() < Date.now()) {
+        return null;
+    }
 
     const user = db.users.find(item => item.id === session.userId);
     return user ? { token, user } : null;
@@ -504,6 +561,159 @@ function bestSellerFromOrders(orders, products) {
     return { ...best, product };
 }
 
+function productReviews(productId, reviews = []) {
+    return reviews.filter(review => cleanText(review.productId) === cleanText(productId));
+}
+
+function productReviewStats(productId, reviews = []) {
+    const ratings = productReviews(productId, reviews)
+        .map(review => Number(review.rating))
+        .filter(rating => Number.isFinite(rating) && rating > 0);
+
+    if (ratings.length === 0) {
+        return { average: 0, count: 0 };
+    }
+
+    return {
+        average: ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length,
+        count: ratings.length
+    };
+}
+
+function productWithReviewStats(product, reviews = []) {
+    const stats = productReviewStats(product.id, reviews);
+
+    return {
+        ...product,
+        rating: stats.count ? Number(stats.average.toFixed(1)) : product.rating,
+        reviewCount: stats.count
+    };
+}
+
+function topProductsFromOrders(orders = []) {
+    const totals = new Map();
+
+    for (const order of orders) {
+        for (const item of order.items || []) {
+            const name = cleanText(item.name) || "Product";
+            const current = totals.get(name.toLowerCase()) || { name, quantity: 0, revenue: 0 };
+            current.quantity += Number(item.qty || 1);
+            current.revenue += Number(item.price || 0) * Number(item.qty || 1);
+            totals.set(name.toLowerCase(), current);
+        }
+    }
+
+    return Array.from(totals.values()).sort((a, b) => b.quantity - a.quantity).slice(0, 5);
+}
+
+const aiProfiles = {
+    birthday: {
+        keywords: ["birthday", "surprise", "custom", "name", "photo", "girlfriend", "boyfriend"],
+        types: ["led-gifts", "resin-work", "keychain", "bracelet", "name-board-fridge-magnet"]
+    },
+    anniversary: {
+        keywords: ["anniversary", "love", "couple", "romantic", "wife", "husband", "girlfriend", "boyfriend"],
+        types: ["couple-gifts", "resin-work", "bracelet", "name-board-fridge-magnet"]
+    },
+    "friendship-day": {
+        keywords: ["friend", "friendship", "bestie", "best friend", "band"],
+        types: ["bracelet", "keychain", "thread-work-bangle-earrings"]
+    },
+    wedding: {
+        keywords: ["wedding", "couple", "bride", "groom", "marriage"],
+        types: ["resin-work", "name-board-fridge-magnet", "couple-gifts", "bracelet"]
+    }
+};
+
+function normalizeAiOccasion(value = "") {
+    const clean = String(value || "").toLowerCase();
+    if (clean.includes("wedding") || clean.includes("marriage")) return "wedding";
+    if (clean.includes("anniversary") || clean.includes("couple") || clean.includes("love") || clean.includes("girlfriend") || clean.includes("boyfriend")) return "anniversary";
+    if (clean.includes("friend")) return "friendship-day";
+    if (clean.includes("birthday") || clean.includes("bday")) return "birthday";
+    return aiProfiles[clean] ? clean : "";
+}
+
+function extractBudget(value = "") {
+    const clean = String(value || "").replace(/,/g, "");
+    const match = clean.match(/(?:under|below|within|up to|upto|budget|rs\.?|inr|₹)?\s*(\d{3,6})/i);
+    return match ? Number(match[1]) : 0;
+}
+
+function scoreRecommendation(product, { query = "", occasion = "", budget = 0 } = {}) {
+    const normalizedOccasion = normalizeAiOccasion(occasion) || normalizeAiOccasion(query);
+    const normalizedBudget = Number(budget || extractBudget(query) || 0);
+    const profile = aiProfiles[normalizedOccasion];
+    const haystack = [
+        product.name,
+        product.description,
+        product.category,
+        product.type,
+        ...(Array.isArray(product.occasions) ? product.occasions : [])
+    ].join(" ").toLowerCase();
+    let score = 0;
+
+    if (normalizedBudget > 0) {
+        if (Number(product.price || 0) <= normalizedBudget) score += 5;
+        else if (Number(product.price || 0) <= normalizedBudget * 1.15) score += 1;
+        else score -= 6;
+    }
+
+    if (profile) {
+        if (profile.types.includes(product.type)) score += 4;
+        profile.keywords.forEach(keyword => {
+            if (haystack.includes(keyword)) score += 2;
+        });
+    }
+
+    String(query || "").toLowerCase().split(/[^a-z0-9]+/).filter(token => token.length > 2).forEach(token => {
+        if (haystack.includes(token)) score += 1;
+    });
+
+    if (product.featured) score += 1;
+    score += Number(product.rating || 0) / 10;
+    if (Number(product.stock || 0) <= 0) score -= 20;
+
+    return score;
+}
+
+function recommendedProducts(products, intent) {
+    return products
+        .map(product => ({ product, score: scoreRecommendation(product, intent) }))
+        .filter(item => item.score > -2)
+        .sort((a, b) => b.score - a.score || Number(a.product.price || 0) - Number(b.product.price || 0))
+        .slice(0, 6)
+        .map(item => item.product);
+}
+
+function chatbotReply(message, db) {
+    const text = String(message || "").toLowerCase();
+    const bestSeller = bestSellerFromOrders(db.orders, db.products);
+
+    if (text.includes("delivery") || text.includes("ship")) {
+        return "Delivery usually takes 5-7 business days after customization confirmation.";
+    }
+
+    if (text.includes("seller") || text.includes("popular") || text.includes("best")) {
+        return bestSeller?.name
+            ? `Current best seller: ${bestSeller.name} with ${bestSeller.quantity} orders.`
+            : "Popular picks are custom keychains, resin frames, and couple bracelets.";
+    }
+
+    if (text.includes("custom") || text.includes("name") || text.includes("photo")) {
+        return "Yes. Customers can add name, color, photo, and gift notes before checkout.";
+    }
+
+    if (text.includes("birthday") || text.includes("friend") || text.includes("anniversary") || text.includes("wedding") || text.includes("gift")) {
+        const picks = recommendedProducts(db.products, { query: message }).slice(0, 3);
+        return picks.length
+            ? "Gift suggestions: " + picks.map(product => `${product.name} (Rs. ${product.price})`).join(", ") + "."
+            : "Tell me the occasion and budget, like birthday gift under Rs. 1000.";
+    }
+
+    return "I can help with best sellers, delivery time, birthday suggestions, wishlist, and personalization.";
+}
+
 function normalizeContact(body) {
     const contact = {
         id: crypto.randomUUID(),
@@ -539,14 +749,14 @@ function serveStatic(req, res) {
         || isPathInside(DATA_DIR, filePath);
 
     if (!isPathInside(ROOT, filePath) || blockedPath) {
-        res.writeHead(403);
+        res.writeHead(403, securityHeaders("text/plain"));
         res.end("Forbidden");
         return;
     }
 
     fs.readFile(filePath, (error, content) => {
         if (error) {
-            res.writeHead(404);
+            res.writeHead(404, securityHeaders("text/plain"));
             res.end("Not found");
             return;
         }
@@ -557,12 +767,17 @@ function serveStatic(req, res) {
             ".css": "text/css",
             ".js": "application/javascript",
             ".json": "application/json",
+            ".webmanifest": "application/manifest+json",
+            ".xml": "application/xml",
+            ".txt": "text/plain",
             ".jpeg": "image/jpeg",
             ".jpg": "image/jpeg",
-            ".png": "image/png"
+            ".png": "image/png",
+            ".webp": "image/webp",
+            ".svg": "image/svg+xml"
         };
 
-        res.writeHead(200, { "Content-Type": types[ext] || "application/octet-stream" });
+        res.writeHead(200, securityHeaders(types[ext] || "application/octet-stream"));
         res.end(content);
     });
 }
@@ -604,9 +819,16 @@ async function handleApi(req, res) {
             }
 
             const token = crypto.randomBytes(32).toString("hex");
-            db.sessions.push({ token, userId: user.id, createdAt: new Date().toISOString() });
+            const now = Date.now();
+            db.sessions = db.sessions.filter(item => !item.expiresAt || new Date(item.expiresAt).getTime() > now);
+            db.sessions.push({
+                token,
+                userId: user.id,
+                createdAt: new Date(now).toISOString(),
+                expiresAt: new Date(now + SESSION_TTL_MS).toISOString()
+            });
             writeDb(db);
-            return sendJson(res, 200, { token, user: publicUser(user) });
+            return sendJson(res, 200, { token, user: publicUser(user), expiresAt: db.sessions[db.sessions.length - 1].expiresAt });
         }
 
         if (req.method === "POST" && url.pathname === "/api/logout") {
@@ -647,18 +869,38 @@ async function handleApi(req, res) {
         }
 
         if (req.method === "GET" && url.pathname === "/api/products") {
-            return sendJson(res, 200, { products: db.products });
+            return sendJson(res, 200, {
+                products: db.products.map(product => productWithReviewStats(product, db.reviews))
+            });
         }
 
         if (req.method === "GET" && url.pathname === "/api/stats") {
             const bestSeller = bestSellerFromOrders(db.orders, db.products);
+            const reviewRatings = db.reviews.map(review => Number(review.rating)).filter(rating => Number.isFinite(rating) && rating > 0);
             return sendJson(res, 200, {
                 bestSeller,
+                topProducts: topProductsFromOrders(db.orders),
                 totalOrders: db.orders.length,
                 revenue: db.orders.reduce((sum, order) => sum + Number(order.total || 0), 0),
                 productsCount: db.products.length,
-                usersCount: db.users.length
+                usersCount: db.users.length,
+                wishlistCount: db.wishlists.reduce((sum, wishlist) => sum + (Array.isArray(wishlist.productIds) ? wishlist.productIds.length : 0), 0),
+                averageRating: reviewRatings.length
+                    ? Number((reviewRatings.reduce((sum, rating) => sum + rating, 0) / reviewRatings.length).toFixed(1))
+                    : 0
             });
+        }
+
+        if (req.method === "POST" && url.pathname === "/api/ai/recommend") {
+            const body = await parseBody(req);
+            return sendJson(res, 200, {
+                products: recommendedProducts(db.products.map(product => productWithReviewStats(product, db.reviews)), body)
+            });
+        }
+
+        if (req.method === "POST" && url.pathname === "/api/ai/chat") {
+            const body = await parseBody(req);
+            return sendJson(res, 200, { reply: chatbotReply(body.message, db) });
         }
 
         if (req.method === "POST" && url.pathname === "/api/products") {
@@ -688,7 +930,7 @@ async function handleApi(req, res) {
 
             if (!product) return sendJson(res, 404, { error: "Product not found" });
 
-            return sendJson(res, 200, { product });
+            return sendJson(res, 200, { product: productWithReviewStats(product, db.reviews) });
         }
 
         if (productMatch && req.method === "PUT") {
@@ -730,6 +972,90 @@ async function handleApi(req, res) {
             );
             writeDb(db);
             return sendJson(res, 200, { ok: true });
+        }
+
+        if (req.method === "GET" && url.pathname === "/api/wishlist") {
+            const session = requireUser(req, res, db);
+            if (!session) return;
+            const wishlist = db.wishlists.find(item => item.userId === session.user.id) || { userId: session.user.id, productIds: [] };
+            const products = db.products
+                .filter(product => wishlist.productIds.includes(product.id))
+                .map(product => productWithReviewStats(product, db.reviews));
+            return sendJson(res, 200, { productIds: wishlist.productIds, products });
+        }
+
+        if (req.method === "POST" && url.pathname === "/api/wishlist") {
+            const session = requireUser(req, res, db);
+            if (!session) return;
+            const body = await parseBody(req);
+            const productId = cleanText(body.productId);
+            const product = db.products.find(item => item.id === productId);
+
+            if (!product) return sendJson(res, 404, { error: "Product not found" });
+
+            let wishlist = db.wishlists.find(item => item.userId === session.user.id);
+            if (!wishlist) {
+                wishlist = { userId: session.user.id, productIds: [], updatedAt: new Date().toISOString() };
+                db.wishlists.push(wishlist);
+            }
+
+            if (!wishlist.productIds.includes(productId)) wishlist.productIds.push(productId);
+            wishlist.updatedAt = new Date().toISOString();
+            writeDb(db);
+            return sendJson(res, 200, { productIds: wishlist.productIds });
+        }
+
+        const wishlistMatch = url.pathname.match(/^\/api\/wishlist\/([^/]+)$/);
+        if (wishlistMatch && req.method === "DELETE") {
+            const session = requireUser(req, res, db);
+            if (!session) return;
+            const productId = wishlistMatch[1];
+            const wishlist = db.wishlists.find(item => item.userId === session.user.id);
+
+            if (wishlist) {
+                wishlist.productIds = wishlist.productIds.filter(id => id !== productId);
+                wishlist.updatedAt = new Date().toISOString();
+                writeDb(db);
+            }
+
+            return sendJson(res, 200, { productIds: wishlist?.productIds || [] });
+        }
+
+        const productReviewMatch = url.pathname.match(/^\/api\/products\/([^/]+)\/reviews$/);
+        if (productReviewMatch && req.method === "GET") {
+            const productId = productReviewMatch[1];
+            return sendJson(res, 200, {
+                reviews: productReviews(productId, db.reviews),
+                stats: productReviewStats(productId, db.reviews)
+            });
+        }
+
+        if (productReviewMatch && req.method === "POST") {
+            const session = requireUser(req, res, db);
+            if (!session) return;
+            const productId = productReviewMatch[1];
+            const product = db.products.find(item => item.id === productId);
+            const body = await parseBody(req);
+            const rating = clampNumber(body.rating, 5, 1, 5);
+            const comment = cleanText(body.comment);
+
+            if (!product) return sendJson(res, 404, { error: "Product not found" });
+            if (!comment) return sendJson(res, 400, { error: "Review comment is required" });
+
+            const review = {
+                id: crypto.randomUUID(),
+                productId,
+                userId: session.user.id,
+                user: session.user.username,
+                rating,
+                comment,
+                createdAt: new Date().toLocaleString()
+            };
+
+            db.reviews.push(review);
+            addNotification(db, "review", "New product review", `${session.user.username} reviewed ${product.name}`, { productId, reviewId: review.id });
+            writeDb(db);
+            return sendJson(res, 201, { review, stats: productReviewStats(productId, db.reviews) });
         }
 
         if (req.method === "GET" && url.pathname === "/api/orders") {
@@ -789,6 +1115,13 @@ async function handleApi(req, res) {
             if (previousStatus !== nextStatus) {
                 const field = orderStatusTimeField(nextStatus);
                 order[field] = order[field] || now;
+                addNotification(
+                    db,
+                    "order",
+                    `Order ${nextStatus}`,
+                    `${order.id} moved from ${previousStatus} to ${nextStatus}`,
+                    { orderId: order.id, status: nextStatus }
+                );
             }
 
             if (nextStatus === "Making") order.confirmedAt = order.confirmedAt || order.makingAt || now;
@@ -839,6 +1172,10 @@ async function handleApi(req, res) {
 
 const server = http.createServer((req, res) => {
     if (req.url.startsWith("/api/")) {
+        if (isRateLimited(req)) {
+            sendJson(res, 429, { error: "Too many requests. Please try again shortly." });
+            return;
+        }
         handleApi(req, res);
     } else {
         serveStatic(req, res);

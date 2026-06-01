@@ -3,7 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Products - SmartOrnaments</title>
+    <meta name="description" content="Browse SmartOrnaments personalized gifts with AI smart search for birthdays, friendship, anniversaries, weddings, and custom budgets.">
+    <meta name="theme-color" content="#ff4d6d">
+    <link rel="canonical" href="https://smartornaments.in/products.html">
+    <link rel="manifest" href="manifest.webmanifest">
+    <title>Products - SmartOrnaments Personalized Gifts</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 
@@ -17,6 +21,7 @@
     <ul>
         <li><a href="index.html">Home</a></li>
         <li><a href="products.html">Products</a></li>
+        <li><a href="wishlist.html">Wishlist</a></li>
         <li><a href="cart.html">Cart <span id="cartCount">0</span></a></li>
         <li><a href="orders.html">Orders</a></li>
         <li><a href="contact.html">Contact</a></li>
@@ -35,7 +40,25 @@
 <section class="products">
     <h2 id="collectionTitle">All Products</h2>
     <button onclick="clearEmotionFilter()" class="filter-reset">Show All Products</button>
-    <input type="text" id="search" placeholder="Search products..." onkeyup="searchProduct()">
+    <input type="text" id="search" placeholder="Try: gift for best friend under Rs. 500" onkeyup="searchProduct()">
+    <p id="smartSearchHint" class="smart-search-hint">Try: birthday gift for girlfriend under Rs. 1000</p>
+
+    <form class="ai-advisor-controls compact-ai-controls" onsubmit="event.preventDefault(); renderGiftAdvisor();">
+        <input type="text" id="aiGiftQuery" placeholder="Need ideas? Type occasion, person, budget">
+        <select id="aiOccasion" aria-label="Occasion">
+            <option value="birthday">Birthday</option>
+            <option value="anniversary">Anniversary</option>
+            <option value="friendship-day">Friendship</option>
+            <option value="wedding">Wedding</option>
+        </select>
+        <select id="aiBudget" aria-label="Budget">
+            <option value="500">Rs. 500</option>
+            <option value="1000" selected>Rs. 1000</option>
+            <option value="2000">Rs. 2000</option>
+        </select>
+        <button type="submit">AI Recommend</button>
+    </form>
+    <div class="product-container ai-results" id="aiRecommendationResults"></div>
 
     <div class="product-container" id="productList"></div>
 

@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex,nofollow">
+    <meta name="theme-color" content="#ff4d6d">
+    <link rel="manifest" href="manifest.webmanifest">
     <title>Admin Dashboard - SmartOrnaments</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
@@ -18,6 +21,7 @@
             <a href="#products">Products</a>
             <a href="#orders">Orders</a>
             <a href="#users">Users</a>
+            <a href="#analytics">Analytics</a>
             <a href="products.html">Shop</a>
             <a href="login.html" onclick="logout(event)">Logout</a>
         </div>
@@ -67,6 +71,16 @@
                 </div>
             </div>
             <div id="adminNotifications" class="admin-notification-list"></div>
+        </section>
+
+        <section class="admin-section" id="analytics">
+            <div class="section-heading">
+                <div>
+                    <span class="eyebrow">Analytics</span>
+                    <h2>Store Insights</h2>
+                </div>
+            </div>
+            <div id="adminAnalytics"></div>
         </section>
 
         <section class="admin-section" id="products">

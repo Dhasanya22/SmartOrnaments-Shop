@@ -3,6 +3,16 @@ const cors = require("cors");
 const path = require("path");
 require("dotenv").config();
 
+let helmet = null;
+let rateLimit = null;
+
+try {
+  helmet = require("helmet");
+  rateLimit = require("express-rate-limit");
+} catch (error) {
+  console.warn("Security middleware packages not installed. Run: npm install helmet express-rate-limit");
+}
+
 const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const cartRoutes = require("./routes/cartRoutes");
@@ -14,6 +24,21 @@ const { login, register, logout } = require("./controllers/authController");
 const dbReady = require("./middleware/dbReady");
 
 const app = express();
+
+if (helmet) {
+  app.use(helmet({
+    crossOriginResourcePolicy: false
+  }));
+}
+
+if (rateLimit) {
+  app.use(rateLimit({
+    windowMs: 60 * 1000,
+    max: Number(process.env.RATE_LIMIT_MAX || 120),
+    standardHeaders: true,
+    legacyHeaders: false
+  }));
+}
 
 const allowedOrigins = (process.env.CLIENT_URL || "")
   .split(",")

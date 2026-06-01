@@ -1000,11 +1000,49 @@ const festivalCollections = {
         title: "Valentine's Day Collection",
         types: ["bracelet", "keychain", "resin-work"],
         keywords: ["valentine", "love", "romantic", "heart", "rose"]
+    },
+    wedding: {
+        title: "Wedding Collection",
+        types: ["resin-work", "name-board-fridge-magnet", "couple-gifts", "bracelet"],
+        keywords: ["wedding", "couple", "bride", "groom", "anniversary", "love"]
     }
 };
 const orderPhotoStorage = {
     product: null,
     checkout: null
+};
+const wishlistStoragePrefix = "wishlist:";
+const reviewStorageKey = "productReviews";
+const aiOccasionAliases = {
+    birthday: "birthday",
+    love: "anniversary",
+    anniversary: "anniversary",
+    friend: "friendship-day",
+    friendship: "friendship-day",
+    "friendship-day": "friendship-day",
+    wedding: "wedding"
+};
+const aiGiftProfiles = {
+    birthday: {
+        label: "Birthday",
+        keywords: ["birthday", "surprise", "custom", "name", "photo", "girlfriend", "boyfriend", "daughter", "son"],
+        types: ["led-gifts", "resin-work", "keychain", "bracelet", "name-board-fridge-magnet"]
+    },
+    anniversary: {
+        label: "Anniversary",
+        keywords: ["anniversary", "love", "couple", "romantic", "partner", "wife", "husband", "girlfriend", "boyfriend"],
+        types: ["couple-gifts", "resin-work", "bracelet", "name-board-fridge-magnet"]
+    },
+    "friendship-day": {
+        label: "Friendship",
+        keywords: ["friend", "friendship", "bestie", "best friend", "band", "buddy"],
+        types: ["bracelet", "keychain", "thread-work-bangle-earrings"]
+    },
+    wedding: {
+        label: "Wedding",
+        keywords: ["wedding", "couple", "bride", "groom", "marriage", "keepsake"],
+        types: ["resin-work", "name-board-fridge-magnet", "couple-gifts", "bracelet"]
+    }
 };
 
 function isAdminLoginId(value) {
@@ -1355,6 +1393,10 @@ function normalizeProductImage(image, type) {
         return legacyImage;
     }
 
+    if (/res\.cloudinary\.com\/.+\/image\/upload\//i.test(cleanImage) && !/\/(f_auto|q_auto|c_|w_)/i.test(cleanImage)) {
+        return cleanImage.replace("/image/upload/", "/image/upload/f_auto,q_auto,w_800/");
+    }
+
     return cleanImage || productCategoryImage(type);
 }
 
@@ -1404,6 +1446,12 @@ function productStockStatus(product) {
 }
 
 function productRating(product) {
+    const reviewStats = getProductReviewStats(product);
+
+    if (reviewStats.count > 0) {
+        return reviewStats.average.toFixed(1);
+    }
+
     const explicitRating = Number(product?.rating);
 
     if (Number.isFinite(explicitRating) && explicitRating > 0) {
@@ -1638,9 +1686,14 @@ function productCard(product, options = {}) {
     const descriptionText = escapeHtml(description);
     const price = Number(product.price || 0);
     const rating = productRating(product);
+    const reviewStats = getProductReviewStats(product);
     const stock = productStock(product);
     const stockStatus = productStockStatus(product);
     const stockClass = stockStatus.className ? " " + stockStatus.className : "";
+    const wishlistActive = isProductWishlisted(productId);
+    const wishlistButton = options.admin
+        ? ""
+        : `<button type="button" class="wishlist-card-btn ${wishlistActive ? "active" : ""}" data-wishlist-button="${escapeHtml(productId)}" aria-pressed="${wishlistActive ? "true" : "false"}" onclick="toggleWishlist('${quote(productId)}')">${wishlistActive ? "Saved" : "Wishlist"}</button>`;
     const detailsButton = options.admin
         ? ""
         : `<button type="button" class="secondary-card-btn" onclick="openProduct('${quote(productId)}')">Customize</button>`;
@@ -1655,7 +1708,7 @@ function productCard(product, options = {}) {
         : "";
 
     return `
-        <article class="card product-card" data-type="${typeValue}" data-category="${escapeHtml(productCategoryDisplay(product).toLowerCase())}" data-festivals="${festivals}">
+        <article class="card product-card" data-product-id="${escapeHtml(productId)}" data-type="${typeValue}" data-category="${escapeHtml(productCategoryDisplay(product).toLowerCase())}" data-festivals="${festivals}" data-price="${price}" data-search="${escapeHtml([product.name, product.category, product.type, description, festivals].join(" ").toLowerCase())}">
             <button type="button" class="product-image-button" onclick="openProduct('${quote(productId)}')" aria-label="View ${displayName}">
                 <img src="${images[0]}" alt="${displayName}" loading="lazy">
             </button>
@@ -1670,9 +1723,11 @@ function productCard(product, options = {}) {
                 <p class="product-card-price">${money(price)}</p>
                 <small class="stock-pill${stockClass}">${stockStatus.label}</small>
                 <small class="photo-count">${photoCount} ${photoCount === 1 ? "photo" : "photos"}</small>
+                <small class="review-count">${reviewStats.count ? `${reviewStats.count} customer reviews` : "New product"}</small>
                 <small class="product-description">${descriptionText}</small>
             </div>
-            <div class="product-card-actions">
+            <div class="product-card-actions ${wishlistButton ? "has-wishlist" : ""}">
+                ${wishlistButton}
                 ${detailsButton}
                 ${addCartButton}
                 ${adminButtons}
@@ -2473,6 +2528,7 @@ async function handleCustomizationPhoto(input) {
     const file = input.files?.[0];
     orderPhotoStorage.product = await resizeOrderPhoto(file);
     renderPhotoPreview("customPhotoPreview", orderPhotoStorage.product);
+    updatePersonalizationPreview();
 }
 
 async function handleCheckoutPhoto(input) {
@@ -2614,27 +2670,36 @@ function orderNow(product, price) {
 function searchProduct() {
     const searchEl = document.getElementById("search");
     const input = (searchEl?.value || "").toLowerCase();
-    const cards = document.getElementsByClassName("card");
+    const productList = document.getElementById("productList");
+    const cards = Array.from((productList || document).getElementsByClassName("card"));
     const filters = getActiveProductFilters();
     let visibleCount = 0;
+    const scoredCards = [];
 
-    for (let i = 0; i < cards.length; i++) {
-        const title = cards[i].getElementsByTagName("h3")[0].innerText.toLowerCase();
-        const category = cards[i].querySelector(".product-category")?.innerText.toLowerCase() || "";
-        const description = cards[i].querySelector(".product-description")?.innerText.toLowerCase() || "";
-        const stock = cards[i].querySelector(".stock-pill")?.innerText.toLowerCase() || "";
-        const itemType = cards[i].getAttribute("data-type");
-        const itemFestivals = (cards[i].getAttribute("data-festivals") || "").split(" ");
-        const matchSearch = title.includes(input) || category.includes(input) || description.includes(input) || stock.includes(input);
+    cards.forEach(card => {
+        const itemType = card.getAttribute("data-type");
+        const itemFestivals = (card.getAttribute("data-festivals") || "").split(" ");
+        const searchScore = smartSearchScoreFromCard(card, input);
+        const matchSearch = !input || searchScore > 0;
         const matchType = !filters.type || itemType === filters.type;
         const matchFestival = !filters.festival || itemFestivals.includes(filters.festival);
         const isVisible = matchSearch && matchType && matchFestival;
 
-        cards[i].style.display = isVisible ? "" : "none";
+        card.style.display = isVisible ? "" : "none";
+        card.dataset.searchScore = String(searchScore);
         if (isVisible) visibleCount++;
+        scoredCards.push({ card, searchScore, isVisible });
+    });
+
+    if (input) {
+        scoredCards
+            .filter(item => item.isVisible)
+            .sort((a, b) => b.searchScore - a.searchScore)
+            .forEach(item => productList?.appendChild(item.card));
     }
 
     updateNoProductsMessage(visibleCount);
+    updateSmartSearchHint(input, visibleCount);
 }
 
 function initProductSearchFromQuery() {
@@ -2783,6 +2848,10 @@ function renderProductDetails(product) {
             </button>
         `).join("");
     }
+
+    updatePersonalizationPreview();
+    updateProductWishlistButton(productIdValue(product));
+    renderProductReviews(product);
 }
 
 async function loadProduct() {
@@ -2940,6 +3009,576 @@ function updateNoProductsMessage(visibleCount) {
     if (emptyEl) {
         emptyEl.style.display = visibleCount === 0 ? "block" : "none";
     }
+}
+
+function normalizeAiOccasion(value = "") {
+    const clean = String(value || "").toLowerCase().replace(/[^a-z-]+/g, "-").replace(/(^-|-$)/g, "");
+    return aiOccasionAliases[clean] || clean || "";
+}
+
+function extractBudgetFromText(text = "") {
+    const clean = String(text || "").toLowerCase().replace(/,/g, "");
+    const underMatch = clean.match(/(?:under|below|within|less than|upto|up to|budget)\s*(?:rs\.?|inr|₹)?\s*(\d{2,6})/i);
+    const rupeeMatch = clean.match(/(?:rs\.?|inr|₹)\s*(\d{2,6})/i);
+    const numberMatch = clean.match(/\b(\d{3,6})\b/);
+    const value = underMatch?.[1] || rupeeMatch?.[1] || numberMatch?.[1] || "";
+
+    return value ? Number(value) : 0;
+}
+
+function inferOccasionFromText(text = "") {
+    const clean = String(text || "").toLowerCase();
+
+    if (clean.includes("wedding") || clean.includes("marriage") || clean.includes("bride") || clean.includes("groom")) return "wedding";
+    if (clean.includes("anniversary") || clean.includes("wife") || clean.includes("husband") || clean.includes("girlfriend") || clean.includes("boyfriend") || clean.includes("couple")) return "anniversary";
+    if (clean.includes("friend") || clean.includes("bestie")) return "friendship-day";
+    if (clean.includes("birthday") || clean.includes("bday")) return "birthday";
+
+    return "";
+}
+
+function getSearchTokens(text = "") {
+    return String(text || "")
+        .toLowerCase()
+        .replace(/rs\.?|inr|₹/g, " ")
+        .split(/[^a-z0-9]+/)
+        .map(token => token.trim())
+        .filter(token => token.length > 2 && !["for", "the", "and", "under", "below", "gift"].includes(token));
+}
+
+function scoreGiftProduct(product, intent = {}) {
+    product = normalizeShopProduct(product);
+    const query = String(intent.query || "").toLowerCase();
+    const occasion = normalizeAiOccasion(intent.occasion) || inferOccasionFromText(query);
+    const budget = Number(intent.budget || extractBudgetFromText(query) || 0);
+    const profile = aiGiftProfiles[occasion];
+    const price = Number(product.price || 0);
+    const haystack = [
+        product.name,
+        product.category,
+        product.type,
+        product.description,
+        productFestivalValues(product).join(" ")
+    ].join(" ").toLowerCase();
+    let score = 0;
+
+    if (budget > 0) {
+        if (price <= budget) score += 5;
+        else if (price <= budget * 1.15) score += 1;
+        else score -= 6;
+    }
+
+    if (profile) {
+        if (profile.types.includes(productTypeValue(product))) score += 4;
+        profile.keywords.forEach(keyword => {
+            if (haystack.includes(keyword)) score += 2;
+        });
+    }
+
+    if (occasion && productFestivalValues(product).includes(occasion)) score += 4;
+
+    getSearchTokens(query).forEach(token => {
+        if (haystack.includes(token)) score += 1.5;
+    });
+
+    if (product.featured) score += 0.75;
+    score += Number(productRating(product)) / 10;
+    if (productStock(product) <= 0) score -= 20;
+
+    return score;
+}
+
+function recommendGiftProducts(products, intent = {}, limit = 6) {
+    return (products || [])
+        .map(product => ({ product: normalizeShopProduct(product), score: scoreGiftProduct(product, intent) }))
+        .filter(item => item.score > -2)
+        .sort((a, b) => b.score - a.score || Number(a.product.price || 0) - Number(b.product.price || 0))
+        .slice(0, limit)
+        .map(item => item.product);
+}
+
+async function renderGiftAdvisor() {
+    const target = document.getElementById("aiRecommendationResults");
+    if (!target) return;
+
+    const query = getFieldValue("aiGiftQuery");
+    const occasion = getFieldValue("aiOccasion");
+    const budget = Number(getFieldValue("aiBudget") || extractBudgetFromText(query) || 0);
+    target.innerHTML = `<div class="empty-panel">Finding thoughtful matches...</div>`;
+
+    let recommendations = [];
+
+    if (useBackend) {
+        try {
+            const data = await apiRequest("/api/ai/recommend", {
+                method: "POST",
+                body: JSON.stringify({ query, occasion, budget })
+            });
+            recommendations = data.products || [];
+        } catch (error) {
+            console.warn(error.message);
+        }
+    }
+
+    if (!recommendations.length) {
+        recommendations = recommendGiftProducts(await getProductsData(), { query, occasion, budget }, 6);
+    }
+
+    target.innerHTML = recommendations.length
+        ? recommendations.map(product => productCard(product)).join("")
+        : `<div class="empty-panel">Try another occasion or budget.</div>`;
+    syncWishlistButtonStates();
+}
+
+function smartSearchScoreFromCard(card, input = "") {
+    const query = String(input || "").trim().toLowerCase();
+    if (!query) return 1;
+
+    const title = card.getElementsByTagName("h3")[0]?.innerText.toLowerCase() || "";
+    const category = card.querySelector(".product-category")?.innerText.toLowerCase() || "";
+    const description = card.querySelector(".product-description")?.innerText.toLowerCase() || "";
+    const stock = card.querySelector(".stock-pill")?.innerText.toLowerCase() || "";
+    const haystack = [card.dataset.search, title, category, description, stock].join(" ");
+    const price = Number(card.dataset.price || 0);
+    const occasion = inferOccasionFromText(query);
+    const budget = extractBudgetFromText(query);
+    const profile = aiGiftProfiles[occasion];
+    let score = 0;
+
+    if (haystack.includes(query)) score += 8;
+
+    getSearchTokens(query).forEach(token => {
+        if (haystack.includes(token)) score += 2;
+    });
+
+    if (profile) {
+        profile.keywords.forEach(keyword => {
+            if (haystack.includes(keyword)) score += 2;
+        });
+        if (profile.types.includes(card.dataset.type)) score += 4;
+    }
+
+    if (occasion && (card.dataset.festivals || "").split(" ").includes(occasion)) score += 4;
+
+    if (budget > 0) {
+        if (price <= budget) score += 4;
+        else if (price <= budget * 1.15) score += 1;
+        else score -= 5;
+    }
+
+    return score;
+}
+
+function updateSmartSearchHint(input, count) {
+    const hint = document.getElementById("smartSearchHint");
+    if (!hint) return;
+
+    if (!input) {
+        hint.innerText = "Try: birthday gift for girlfriend under Rs. 1000";
+        return;
+    }
+
+    hint.innerText = count
+        ? `${count} smart matches for "${input}"`
+        : "No smart matches found. Try a product, occasion, relationship, or budget.";
+}
+
+function wishlistStorageKey() {
+    return wishlistStoragePrefix + getCustomerKey();
+}
+
+function getLocalWishlistIds() {
+    try {
+        const ids = JSON.parse(localStorage.getItem(wishlistStorageKey()) || "[]");
+        return Array.isArray(ids) ? ids.map(String) : [];
+    } catch (error) {
+        localStorage.removeItem(wishlistStorageKey());
+        return [];
+    }
+}
+
+function saveLocalWishlistIds(ids) {
+    localStorage.setItem(wishlistStorageKey(), JSON.stringify(Array.from(new Set(ids.map(String)))));
+}
+
+function isProductWishlisted(productId) {
+    return getLocalWishlistIds().includes(String(productId || ""));
+}
+
+async function toggleWishlist(productId) {
+    productId = String(productId || "");
+    if (!productId) return;
+
+    const ids = getLocalWishlistIds();
+    const isSaved = ids.includes(productId);
+    const nextIds = isSaved ? ids.filter(id => id !== productId) : [...ids, productId];
+    saveLocalWishlistIds(nextIds);
+    updateProductWishlistButton(productId);
+    renderWishlist();
+
+    if (useBackend && hasAuthToken()) {
+        try {
+            await apiRequest("/api/wishlist" + (isSaved ? "/" + encodeURIComponent(productId) : ""), {
+                method: isSaved ? "DELETE" : "POST",
+                body: isSaved ? undefined : JSON.stringify({ productId })
+            });
+        } catch (error) {
+            console.warn(error.message);
+        }
+    }
+}
+
+function updateProductWishlistButton(productId) {
+    const active = isProductWishlisted(productId);
+    const selectorId = typeof CSS !== "undefined" && CSS.escape
+        ? CSS.escape(String(productId || ""))
+        : String(productId || "").replace(/"/g, '\\"');
+
+    document.querySelectorAll(`[data-wishlist-button="${selectorId}"]`).forEach(button => {
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-pressed", active ? "true" : "false");
+        button.innerText = active ? "Saved" : "Wishlist";
+    });
+
+    const detailButton = document.getElementById("productWishlistButton");
+    if (detailButton) {
+        detailButton.classList.toggle("active", active);
+        detailButton.setAttribute("aria-pressed", active ? "true" : "false");
+        detailButton.innerText = active ? "Saved to Wishlist" : "Add to Wishlist";
+    }
+}
+
+function syncWishlistButtonStates() {
+    document.querySelectorAll("[data-wishlist-button]").forEach(button => {
+        updateProductWishlistButton(button.getAttribute("data-wishlist-button"));
+    });
+}
+
+async function getWishlistProducts() {
+    const localIds = getLocalWishlistIds();
+
+    if (useBackend && hasAuthToken()) {
+        try {
+            const data = await apiRequest("/api/wishlist");
+            const products = Array.isArray(data.products) ? data.products : [];
+            if (Array.isArray(data.productIds)) saveLocalWishlistIds(data.productIds);
+            if (products.length) return products;
+        } catch (error) {
+            console.warn(error.message);
+        }
+    }
+
+    const products = await getProductsData();
+    return products.filter(product => localIds.includes(productIdValue(product)));
+}
+
+async function renderWishlist() {
+    const container = document.getElementById("wishlistItems");
+    if (!container) return;
+
+    const products = await getWishlistProducts();
+
+    if (!products.length) {
+        container.innerHTML = `
+            <div class="empty-panel">
+                <h3>Your wishlist is empty.</h3>
+                <p>Save products while browsing and move them to cart later.</p>
+                <a href="products.html" class="btn primary-btn">Browse Products</a>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = products.map(product => {
+        product = normalizeShopProduct(product);
+        const id = productIdValue(product);
+        return `
+            <article class="wishlist-row">
+                <img src="${productImages(product)[0]}" alt="${escapeHtml(product.name)}" loading="lazy">
+                <div>
+                    <h3>${escapeHtml(product.name)}</h3>
+                    <p>${money(product.price)}</p>
+                    <small>${escapeHtml(productCategoryDisplay(product))}</small>
+                </div>
+                <div class="wishlist-row-actions">
+                    <button type="button" onclick="addWishlistProductToCart('${quote(id)}')">Move to Cart</button>
+                    <button type="button" onclick="toggleWishlist('${quote(id)}')">Remove</button>
+                </div>
+            </article>
+        `;
+    }).join("");
+}
+
+async function addWishlistProductToCart(productId) {
+    const added = await addProductToCart(productId);
+    if (added) {
+        await toggleWishlist(productId);
+        renderWishlist();
+    }
+}
+
+function getLocalReviews() {
+    try {
+        const reviews = JSON.parse(localStorage.getItem(reviewStorageKey) || "[]");
+        return Array.isArray(reviews) ? reviews : [];
+    } catch (error) {
+        localStorage.removeItem(reviewStorageKey);
+        return [];
+    }
+}
+
+function saveLocalReviews(reviews) {
+    localStorage.setItem(reviewStorageKey, JSON.stringify(Array.isArray(reviews) ? reviews : []));
+}
+
+function reviewsForProduct(productOrId) {
+    const productId = typeof productOrId === "string" ? productOrId : productIdValue(productOrId);
+    const embedded = Array.isArray(productOrId?.reviews) ? productOrId.reviews : [];
+    const local = getLocalReviews().filter(review => String(review.productId) === String(productId));
+    const seen = new Set();
+
+    return [...embedded, ...local].filter(review => {
+        const key = review.id || [review.productId, review.user, review.rating, review.comment, review.createdAt].join("|");
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+}
+
+function getProductReviewStats(product = {}) {
+    const reviews = reviewsForProduct(product);
+    const valid = reviews.map(review => Number(review.rating)).filter(rating => Number.isFinite(rating) && rating > 0);
+
+    if (!valid.length) {
+        return { average: 0, count: 0 };
+    }
+
+    return {
+        average: valid.reduce((sum, rating) => sum + rating, 0) / valid.length,
+        count: valid.length
+    };
+}
+
+async function renderProductReviews(product = {}) {
+    const container = document.getElementById("productReviews");
+    const summary = document.getElementById("reviewSummary");
+    if (!container && !summary) return;
+
+    const productId = productIdValue(product) || localStorage.getItem("productId");
+    let reviews = reviewsForProduct(productId);
+
+    if (useBackend) {
+        try {
+            const data = await apiRequest("/api/products/" + encodeURIComponent(productId) + "/reviews");
+            reviews = Array.isArray(data.reviews) ? data.reviews : reviews;
+        } catch (error) {
+            console.warn(error.message);
+        }
+    }
+
+    const stats = getProductReviewStats({ ...product, id: productId, reviews });
+    if (summary) {
+        summary.innerText = stats.count
+            ? `${stats.average.toFixed(1)} average from ${stats.count} reviews`
+            : "No reviews yet";
+    }
+
+    if (container) {
+        container.innerHTML = reviews.length
+            ? reviews.slice().reverse().map(review => `
+                <article class="review-item">
+                    <strong>${escapeHtml(review.rating || 5)} / 5</strong>
+                    <p>${escapeHtml(review.comment || "Loved this product.")}</p>
+                    <small>${escapeHtml(review.user || review.username || "Customer")} - ${escapeHtml(review.createdAt || "")}</small>
+                </article>
+            `).join("")
+            : `<div class="empty-panel">Be the first to review this product.</div>`;
+    }
+}
+
+async function submitProductReview(event) {
+    if (event) event.preventDefault();
+
+    const productId = localStorage.getItem("productId");
+    const rating = Number(getFieldValue("reviewRating") || 5);
+    const comment = getFieldValue("reviewComment");
+    const review = {
+        id: "local-review-" + Date.now(),
+        productId,
+        rating,
+        comment,
+        user: localStorage.getItem("loggedInUser") || "Customer",
+        createdAt: new Date().toLocaleString()
+    };
+
+    if (!productId || !comment) {
+        const message = document.getElementById("reviewMessage");
+        if (message) message.innerText = "Please add a short review.";
+        return;
+    }
+
+    const reviews = getLocalReviews();
+    reviews.push(review);
+    saveLocalReviews(reviews);
+
+    if (useBackend && hasAuthToken()) {
+        try {
+            await apiRequest("/api/products/" + encodeURIComponent(productId) + "/reviews", {
+                method: "POST",
+                body: JSON.stringify({ rating, comment })
+            });
+        } catch (error) {
+            console.warn(error.message);
+        }
+    }
+
+    const message = document.getElementById("reviewMessage");
+    const field = document.getElementById("reviewComment");
+    if (field) field.value = "";
+    if (message) message.innerText = "Review saved. Thank you!";
+    renderProductReviews({ id: productId, reviews });
+}
+
+function updatePersonalizationPreview() {
+    const preview = document.getElementById("personalizationPreview");
+    if (!preview) return;
+
+    const name = getFieldValue("customName") || "Your Name";
+    const color = getFieldValue("customColor") || "Pink";
+    const photo = orderPhotoStorage.product;
+    const swatch = preview.querySelector(".preview-swatch");
+    const text = preview.querySelector(".preview-name");
+    const image = preview.querySelector("img");
+
+    if (text) text.innerText = `${name} \u2665`;
+    if (swatch) swatch.style.background = color;
+
+    if (image) {
+        if (photo?.dataUrl) {
+            image.src = photo.dataUrl;
+            image.style.display = "block";
+        } else {
+            image.removeAttribute("src");
+            image.style.display = "none";
+        }
+    }
+}
+
+function initStepFiveFeatures() {
+    renderGiftAdvisor();
+    renderWishlist();
+    syncWishlistButtonStates();
+    updateSmartSearchHint(getFieldValue("search"), document.querySelectorAll("#productList .product-card").length);
+    initAiChatbot();
+    registerServiceWorker();
+}
+
+function chatbotAnswer(message) {
+    const text = String(message || "").toLowerCase();
+    const products = getProducts();
+    const bestSeller = getBestSellerFromOrders(getLocalOrders(), products);
+
+    if (text.includes("delivery") || text.includes("ship")) {
+        return "Delivery usually takes 5-7 business days after customization confirmation.";
+    }
+
+    if (text.includes("seller") || text.includes("popular") || text.includes("best")) {
+        return bestSeller?.name
+            ? `Current best seller: ${bestSeller.name}. It has ${bestSeller.quantity} orders.`
+            : "Popular picks are custom keychains, resin frames, and couple bracelets.";
+    }
+
+    if (text.includes("birthday") || text.includes("friend") || text.includes("girlfriend") || text.includes("anniversary") || text.includes("wedding")) {
+        const picks = recommendGiftProducts(products, { query: text }, 3);
+        return picks.length
+            ? "Gift suggestions: " + picks.map(product => `${product.name} (${money(product.price)})`).join(", ") + "."
+            : "Tell me the occasion and budget, like: birthday gift under Rs. 1000.";
+    }
+
+    if (text.includes("custom") || text.includes("name") || text.includes("photo")) {
+        return "Yes, you can add a name, color, and photo from the product page before adding it to cart.";
+    }
+
+    if (text.includes("payment") || text.includes("razorpay")) {
+        return "Checkout supports order confirmation and Razorpay payment when the payment key is configured.";
+    }
+
+    return "I can help with best sellers, delivery time, birthday suggestions, wishlist, and personalization.";
+}
+
+function initAiChatbot() {
+    if (document.getElementById("aiChatbot")) return;
+
+    const widget = document.createElement("div");
+    widget.id = "aiChatbot";
+    widget.className = "ai-chatbot";
+    widget.innerHTML = `
+        <button type="button" class="ai-chat-toggle" onclick="toggleAiChat()" aria-label="Open gift assistant">AI</button>
+        <section class="ai-chat-panel" aria-label="SmartOrnaments gift assistant">
+            <header>
+                <strong>Gift Assistant</strong>
+                <button type="button" onclick="toggleAiChat()" aria-label="Close gift assistant">Close</button>
+            </header>
+            <div id="aiChatMessages" class="ai-chat-messages">
+                <p class="bot-message">Ask about best sellers, delivery time, or gift ideas.</p>
+            </div>
+            <form onsubmit="sendAiChatMessage(event)">
+                <input id="aiChatInput" type="text" placeholder="Birthday gift under Rs. 1000">
+                <button type="submit">Send</button>
+            </form>
+        </section>
+    `;
+    document.body.appendChild(widget);
+}
+
+function toggleAiChat() {
+    document.getElementById("aiChatbot")?.classList.toggle("open");
+}
+
+async function sendAiChatMessage(event) {
+    event.preventDefault();
+    const input = document.getElementById("aiChatInput");
+    const messages = document.getElementById("aiChatMessages");
+    const text = input?.value.trim() || "";
+
+    if (!text || !messages) return;
+
+    messages.innerHTML += `<p class="user-message">${escapeHtml(text)}</p>`;
+    input.value = "";
+
+    let reply = "";
+    if (useBackend) {
+        try {
+            const data = await apiRequest("/api/ai/chat", {
+                method: "POST",
+                body: JSON.stringify({ message: text })
+            });
+            reply = data.reply || "";
+        } catch (error) {
+            console.warn(error.message);
+        }
+    }
+
+    messages.innerHTML += `<p class="bot-message">${escapeHtml(reply || chatbotAnswer(text))}</p>`;
+    messages.scrollTop = messages.scrollHeight;
+}
+
+function requestBrowserNotificationPermission() {
+    if (!("Notification" in window) || Notification.permission !== "default") return;
+    Notification.requestPermission().catch(() => {});
+}
+
+function sendBrowserNotification(title, body) {
+    if (!("Notification" in window) || Notification.permission !== "granted") return;
+    new Notification(title, { body, icon: "images/Logo.png" });
+}
+
+function registerServiceWorker() {
+    if (!("serviceWorker" in navigator) || location.protocol === "file:") return;
+
+    navigator.serviceWorker.register("service-worker.js").catch(error => {
+        console.warn(error.message);
+    });
 }
 
 function generateMessage() {
@@ -3796,6 +4435,7 @@ function initScrollAnimations() {
 document.addEventListener("DOMContentLoaded", () => {
     ensureNavbarControls();
     initScrollAnimations();
+    initStepFiveFeatures();
 });
 
 function requireLogin(redirectTo = getCurrentPage()) {
@@ -4575,6 +5215,7 @@ function finishCheckout(order, baseMessage, orderData = {}, options = {}) {
     const message = `${baseMessage}\nOrder ID: ${order.id}\nTotal: ${money(order.total)}\nOffer: ${order.offer || "No offer"}\nPayment Status: ${order.paymentStatus || orderData.paymentStatus || "Pending"}`;
     localStorage.setItem("lastOrderId", order.id);
     localStorage.setItem("lastOrderPaymentStatus", order.paymentStatus || orderData.paymentStatus || "Pending");
+    sendBrowserNotification("Order placed", `${order.id} placed successfully. Total: ${money(order.total)}`);
     if (options.openWhatsApp) {
         window.open(`https://wa.me/919344586609?text=${encodeURIComponent(message)}`, "_blank");
     }
@@ -4825,6 +5466,7 @@ async function updateStatus(index) {
             });
             const updatedOrder = data.order || applyOrderStatus({ ...orders[index] }, next);
             if (shouldSendConfirmation) openOrderConfirmationWhatsApp(updatedOrder, confirmationWindow);
+            sendBrowserNotification("Order status updated", `${updatedOrder.id || "Order"} is now ${normalizeOrderStatus(updatedOrder.status)}`);
             if (document.getElementById("adminOrders")) await loadAdminOrders();
             else await loadOrders();
             return;
@@ -4845,6 +5487,7 @@ async function updateStatus(index) {
             });
             const updatedOrder = data.order || applyOrderStatus({ ...orders[index] }, next);
             if (shouldSendConfirmation) openOrderConfirmationWhatsApp(updatedOrder, confirmationWindow);
+            sendBrowserNotification("Order status updated", `${updatedOrder.id || "Order"} is now ${normalizeOrderStatus(updatedOrder.status)}`);
             if (document.getElementById("adminOrders")) await loadAdminOrders();
             else await loadOrders();
             return;
@@ -4862,6 +5505,7 @@ async function updateStatus(index) {
     applyOrderStatus(orders[index], next);
     saveLocalOrders(orders);
     if (shouldSendConfirmation) openOrderConfirmationWhatsApp(orders[index], confirmationWindow);
+    sendBrowserNotification("Order status updated", `${orders[index].id || "Order"} is now ${normalizeOrderStatus(orders[index].status)}`);
 
     if (document.getElementById("adminOrders")) {
         loadAdminOrders();
@@ -4913,6 +5557,7 @@ async function initAdminPage() {
     await loadAdminProducts();
     await loadAdminOrders();
     await loadAdminUsers();
+    await renderAdminAnalytics();
     updateCartCount();
 }
 
@@ -5009,6 +5654,61 @@ async function loadAdminOrders() {
         `;
     });
 
+}
+
+async function renderAdminAnalytics() {
+    const container = document.getElementById("adminAnalytics");
+    if (!container) return;
+
+    const [orders, products, users] = await Promise.all([
+        getOrdersData(),
+        getProductsData(),
+        getUsersData()
+    ]);
+    const totals = new Map();
+
+    orders.forEach(order => {
+        (order.items || []).forEach(item => {
+            const key = String(item.name || "Product");
+            const current = totals.get(key) || { name: key, quantity: 0, revenue: 0 };
+            current.quantity += Number(item.qty || 1);
+            current.revenue += Number(item.price || 0) * Number(item.qty || 1);
+            totals.set(key, current);
+        });
+    });
+
+    const topProducts = Array.from(totals.values()).sort((a, b) => b.quantity - a.quantity).slice(0, 5);
+    const wishlistCount = getLocalWishlistIds().length;
+    const reviewStats = products.reduce((summary, product) => {
+        const stats = getProductReviewStats(product);
+        summary.count += stats.count;
+        summary.total += stats.average * stats.count;
+        return summary;
+    }, { count: 0, total: 0 });
+    const avgRating = reviewStats.count ? (reviewStats.total / reviewStats.count).toFixed(1) : "0.0";
+
+    container.innerHTML = `
+        <div class="analytics-grid">
+            <article class="analytics-card">
+                <span>Users</span>
+                <strong>${users.length}</strong>
+            </article>
+            <article class="analytics-card">
+                <span>Wishlist Saves</span>
+                <strong>${wishlistCount}</strong>
+            </article>
+            <article class="analytics-card">
+                <span>Average Rating</span>
+                <strong>${avgRating}</strong>
+            </article>
+        </div>
+        <div class="top-products-list">
+            ${topProducts.length ? topProducts.map(item => `
+                <p><b>${escapeHtml(item.name)}</b><span>${item.quantity} sold - ${money(item.revenue)}</span></p>
+            `).join("") : "<p>No sales analytics yet.</p>"}
+        </div>
+        <small>Connect Google Analytics or Tag Manager in production for traffic and conversion tracking.</small>
+    `;
 }
 
 async function logout(event) {

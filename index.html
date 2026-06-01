@@ -3,7 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SmartOrnaments Shop</title>
+    <meta name="description" content="AI-powered personalized gifts, custom keychains, resin frames, bracelets, and photo keepsakes from SmartOrnaments.">
+    <meta name="keywords" content="SmartOrnaments, personalized gifts, custom gifts, birthday gifts, resin frame, keychain, Tamil Nadu">
+    <meta name="theme-color" content="#ff4d6d">
+    <link rel="canonical" href="https://smartornaments.in/">
+    <link rel="manifest" href="manifest.webmanifest">
+    <title>SmartOrnaments | AI-Powered Personalized Gifts</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body onload="showUser(); updateCartCount(); renderCategoryTiles(); renderFeaturedProducts(); renderTrendingProducts();">
@@ -19,6 +24,7 @@
             <li><a href="index.html">Home</a></li>
             <li><a href="products.html">Products</a></li>
             <li><a href="#categories">Categories</a></li>
+            <li><a href="wishlist.html">Wishlist</a></li>
             <li><a href="#why">About</a></li>
         </ul>
 
@@ -60,6 +66,32 @@
                 <a href="products.html">Explore all</a>
             </div>
             <div class="category-grid" data-category-tiles="home"></div>
+        </section>
+
+        <section class="ai-gift-advisor page-band alt-band" data-animate>
+            <div class="section-heading">
+                <div>
+                    <span class="eyebrow">AI gift finder</span>
+                    <h2>Personalized Gift Recommendations</h2>
+                </div>
+                <a href="products.html">Search all</a>
+            </div>
+            <form class="ai-advisor-controls" onsubmit="event.preventDefault(); renderGiftAdvisor();">
+                <input type="text" id="aiGiftQuery" placeholder="Birthday gift for girlfriend under Rs. 1000">
+                <select id="aiOccasion" aria-label="Occasion">
+                    <option value="birthday">Birthday</option>
+                    <option value="anniversary">Anniversary</option>
+                    <option value="friendship-day">Friendship</option>
+                    <option value="wedding">Wedding</option>
+                </select>
+                <select id="aiBudget" aria-label="Budget">
+                    <option value="500">Under Rs. 500</option>
+                    <option value="1000" selected>Under Rs. 1000</option>
+                    <option value="2000">Under Rs. 2000</option>
+                </select>
+                <button type="submit">Recommend</button>
+            </form>
+            <div class="product-container ai-results" id="aiRecommendationResults"></div>
         </section>
 
         <section class="product page-band alt-band" data-animate>

@@ -18,6 +18,7 @@
     <ul>
         <li><a href="index.html">Home</a></li>
         <li><a href="products.html">Products</a></li>
+        <li><a href="wishlist.html">Wishlist</a></li>
         <li><a href="cart.html">Cart <span id="cartCount">0</span></a></li>
         <li><a href="orders.html">Orders</a></li>
     </ul>
@@ -39,6 +40,7 @@
         </div>
         <p id="couponStatus" class="form-message"></p>
         <div id="cartPriceBreakdown" class="price-breakdown"></div>
+        <button type="button" class="notification-opt-in" onclick="requestBrowserNotificationPermission()">Enable Order Notifications</button>
         <div class="cart-actions">
             <a href="products.html" class="btn">Continue Shopping</a>
             <a href="checkout.html" class="btn primary-btn">Proceed to Checkout</a>
