@@ -1244,13 +1244,32 @@ const categoryOccasions = {
     "couple-gifts": ["anniversary", "valentines-day"]
 };
 
+function cleanProductDisplayText(value) {
+    return String(value || "")
+        .replace(/\s*\(\d+\)(?=\s|$)/g, "")
+        .replace(/\s{2,}/g, " ")
+        .trim();
+}
+
+function productDisplayName(productOrName) {
+    const name = productOrName && typeof productOrName === "object"
+        ? productOrName.name
+        : productOrName;
+
+    return cleanProductDisplayText(name) || "Product";
+}
+
+function productDisplayDescription(product) {
+    return cleanProductDisplayText(productDescription(product));
+}
+
 function nameFromImagePath(image) {
-    return String(image || "")
+    return cleanProductDisplayText(String(image || "")
         .split("/")
         .pop()
         .replace(/\.[^.]+$/, "")
         .replace(/\s+/g, " ")
-        .trim();
+        .trim());
 }
 
 function slugFromText(value) {
@@ -1678,9 +1697,10 @@ function productCard(product, options = {}) {
     const images = productImages(product);
     const photoCount = images.length;
     const typeValue = productTypeValue(product);
-    const description = productDescription(product);
+    const description = productDisplayDescription(product);
     const festivals = productFestivalValues(product).join(" ");
-    const displayName = escapeHtml(product.name || "Product");
+    const displayNameText = productDisplayName(product);
+    const displayName = escapeHtml(displayNameText);
     const productId = productIdValue(product);
     const categoryLabel = escapeHtml(productCategoryDisplay(product));
     const descriptionText = escapeHtml(description);
@@ -1708,7 +1728,7 @@ function productCard(product, options = {}) {
         : "";
 
     return `
-        <article class="card product-card" data-product-id="${escapeHtml(productId)}" data-type="${typeValue}" data-category="${escapeHtml(productCategoryDisplay(product).toLowerCase())}" data-festivals="${festivals}" data-price="${price}" data-search="${escapeHtml([product.name, product.category, product.type, description, festivals].join(" ").toLowerCase())}">
+        <article class="card product-card" data-product-id="${escapeHtml(productId)}" data-type="${typeValue}" data-category="${escapeHtml(productCategoryDisplay(product).toLowerCase())}" data-festivals="${festivals}" data-price="${price}" data-search="${escapeHtml([displayNameText, product.name, product.category, product.type, description, festivals].join(" ").toLowerCase())}">
             <button type="button" class="product-image-button" onclick="openProduct('${quote(productId)}')" aria-label="View ${displayName}">
                 <img src="${images[0]}" alt="${displayName}" loading="lazy">
             </button>
@@ -1816,7 +1836,7 @@ async function renderBestSellerSection() {
     const product = bestSeller.product || {};
     const image = productImages(product)[0];
     const price = Number(product.price || 0);
-    const productName = product.name || bestSeller.name;
+    const productName = product.name ? productDisplayName(product) : productDisplayName(bestSeller.name);
 
     container.innerHTML = `
         <div class="best-seller-card">
@@ -2601,7 +2621,7 @@ function canAddProductToCart(product, qty) {
     }
 
     if (getCartQuantityForProduct(product) + qty > stock) {
-        alert(`Only ${stock} available for ${product.name}.`);
+        alert(`Only ${stock} available for ${productDisplayName(product)}.`);
         return false;
     }
 
@@ -2650,7 +2670,7 @@ async function addProductToCart(id, qty = 1, customization = {}) {
         return false;
     }
 
-    addCartItem(product.name, product.price, quantity, customization, product);
+    addCartItem(productDisplayName(product), product.price, quantity, customization, product);
     alert("Added to cart");
     return true;
 }
@@ -2750,15 +2770,17 @@ async function openProduct(id) {
     if (!product) return;
     const images = productImages(product);
     const productId = productIdValue(product);
+    const displayName = productDisplayName(product);
+    const displayDescription = productDisplayDescription(product);
 
     localStorage.setItem("productId", productId);
-    localStorage.setItem("productName", product.name);
+    localStorage.setItem("productName", displayName);
     localStorage.setItem("productPrice", product.price);
     localStorage.setItem("productImage", images[0]);
     localStorage.setItem("productImages", JSON.stringify(images));
     localStorage.setItem("productType", productTypeValue(product));
     localStorage.setItem("productCategory", productCategoryDisplay(product));
-    localStorage.setItem("productDescription", productDescription(product));
+    localStorage.setItem("productDescription", displayDescription);
     localStorage.setItem("productStock", productStock(product));
     localStorage.setItem("productRating", productRating(product));
     window.location.href = "product.html?id=" + encodeURIComponent(productId);
@@ -2796,11 +2818,11 @@ function productIdFromLocation() {
 
 function renderProductDetails(product) {
     product = normalizeShopProduct(product);
-    const name = product.name || "Product";
+    const name = productDisplayName(product);
     const price = Number(product.price || 0);
     const images = productImages(product);
     const image = images[0];
-    const description = productDescription(product);
+    const description = productDisplayDescription(product);
     const stock = productStock(product);
     const stockStatus = productStockStatus(product);
     const nameEl = document.getElementById("productName");
@@ -3292,11 +3314,12 @@ async function renderWishlist() {
     container.innerHTML = products.map(product => {
         product = normalizeShopProduct(product);
         const id = productIdValue(product);
+        const name = productDisplayName(product);
         return `
             <article class="wishlist-row">
-                <img src="${productImages(product)[0]}" alt="${escapeHtml(product.name)}" loading="lazy">
+                <img src="${productImages(product)[0]}" alt="${escapeHtml(name)}" loading="lazy">
                 <div>
-                    <h3>${escapeHtml(product.name)}</h3>
+                    <h3>${escapeHtml(name)}</h3>
                     <p>${money(product.price)}</p>
                     <small>${escapeHtml(productCategoryDisplay(product))}</small>
                 </div>
@@ -3484,14 +3507,14 @@ function chatbotAnswer(message) {
 
     if (text.includes("seller") || text.includes("popular") || text.includes("best")) {
         return bestSeller?.name
-            ? `Current best seller: ${bestSeller.name}. It has ${bestSeller.quantity} orders.`
+            ? `Current best seller: ${productDisplayName(bestSeller.name)}. It has ${bestSeller.quantity} orders.`
             : "Popular picks are custom keychains, resin frames, and couple bracelets.";
     }
 
     if (text.includes("birthday") || text.includes("friend") || text.includes("girlfriend") || text.includes("anniversary") || text.includes("wedding")) {
         const picks = recommendGiftProducts(products, { query: text }, 3);
         return picks.length
-            ? "Gift suggestions: " + picks.map(product => `${product.name} (${money(product.price)})`).join(", ") + "."
+            ? "Gift suggestions: " + picks.map(product => `${productDisplayName(product)} (${money(product.price)})`).join(", ") + "."
             : "Tell me the occasion and budget, like: birthday gift under Rs. 1000.";
     }
 
@@ -4490,11 +4513,12 @@ function loadCart() {
     cart.forEach((item, i) => {
         const qty = Number(item.qty || 1);
         const image = item.image || "images/Logo.png";
+        const name = productDisplayName(item.name);
         container.innerHTML += `
             <div class="cart-card">
-                <img class="cart-item-image" src="${image}" alt="${escapeHtml(item.name || "Product")}">
+                <img class="cart-item-image" src="${image}" alt="${escapeHtml(name)}">
                 <div>
-                    <h3>${item.name}</h3>
+                    <h3>${escapeHtml(name)}</h3>
                     <p>${money(item.price)} each</p>
                     <p><b>Subtotal:</b> ${money(item.price * qty)}</p>
                     ${customizationDetailsHtml(item.customization)}
@@ -4534,7 +4558,7 @@ function changeCartQty(index, change) {
         );
 
         if (product && Number(item.qty || 1) + change > productStock(product)) {
-            alert(`Only ${productStock(product)} available for ${product.name}.`);
+            alert(`Only ${productStock(product)} available for ${productDisplayName(product)}.`);
             return;
         }
     }
@@ -4686,7 +4710,7 @@ async function validateCartStock(cart) {
         const stock = productStock(product);
 
         if (stock < qty) {
-            return `${product.name} has only ${stock} left in stock.`;
+            return `${productDisplayName(product)} has only ${stock} left in stock.`;
         }
     }
 
@@ -4731,8 +4755,9 @@ function updateOrderSummary() {
 
     const items = cart.map(item => {
         const qty = Number(item.qty || 1);
+        const name = productDisplayName(item.name);
         return `
-            <p>${item.name} x ${qty} - ${money(item.price * qty)}</p>
+            <p>${escapeHtml(name)} x ${qty} - ${money(item.price * qty)}</p>
             ${customizationDetailsHtml(item.customization)}
         `;
     }).join("");
@@ -4937,11 +4962,12 @@ function renderCheckoutItems() {
 
     container.innerHTML = cart.map(item => {
         const qty = Number(item.qty || 1);
+        const name = productDisplayName(item.name);
         return `
             <div class="checkout-item">
-                <img src="${item.image || "images/Logo.png"}" alt="${escapeHtml(item.name || "Product")}">
+                <img src="${item.image || "images/Logo.png"}" alt="${escapeHtml(name)}">
                 <div>
-                    <b>${escapeHtml(item.name || "Product")}</b>
+                    <b>${escapeHtml(name)}</b>
                     <span>${qty} x ${money(item.price)}</span>
                 </div>
                 <strong>${money(Number(item.price || 0) * qty)}</strong>
@@ -5078,8 +5104,9 @@ function buildCheckoutMessage(cart, details, pricing) {
         const qty = Number(item.qty || 1);
         const subtotal = Number(item.price || 0) * qty;
         const itemCustomization = cleanCustomizationData(item.customization);
+        const name = productDisplayName(item.name);
 
-        message += `${i + 1}. ${item.name} x ${qty} - ${money(subtotal)}\n`;
+        message += `${i + 1}. ${name} x ${qty} - ${money(subtotal)}\n`;
         if (hasCustomizationData(itemCustomization)) {
             message += `   Name: ${itemCustomization.customName || "Not provided"}\n`;
             message += `   Color: ${itemCustomization.color || "Not selected"}\n`;
@@ -5301,8 +5328,9 @@ async function loadOrders() {
 
         (order.items || []).forEach(item => {
             const qty = Number(item.qty || 1);
+            const name = productDisplayName(item.name);
             itemsHTML += `
-                <p>- ${item.name} x ${qty} - ${money(item.price * qty)}</p>
+                <p>- ${escapeHtml(name)} x ${qty} - ${money(item.price * qty)}</p>
                 ${customizationDetailsHtml(item.customization)}
             `;
         });
@@ -5590,7 +5618,7 @@ async function loadAdminOrders() {
     if (totalRevenue) totalRevenue.innerText = money(allRevenue);
     if (adminBestSeller) {
         adminBestSeller.innerText = bestSeller
-            ? `${bestSeller.name} (${bestSeller.quantity})`
+            ? `${productDisplayName(bestSeller.name)} (${bestSeller.quantity})`
             : "No orders yet";
     }
 
@@ -5613,8 +5641,9 @@ async function loadAdminOrders() {
 
         (order.items || []).forEach(item => {
             const qty = Number(item.qty || 1);
+            const name = productDisplayName(item.name);
             itemsHTML += `
-                <p>- ${item.name} x ${qty} - ${money(item.price * qty)}</p>
+                <p>- ${escapeHtml(name)} x ${qty} - ${money(item.price * qty)}</p>
                 ${customizationDetailsHtml(item.customization)}
             `;
         });
@@ -5704,7 +5733,7 @@ async function renderAdminAnalytics() {
         </div>
         <div class="top-products-list">
             ${topProducts.length ? topProducts.map(item => `
-                <p><b>${escapeHtml(item.name)}</b><span>${item.quantity} sold - ${money(item.revenue)}</span></p>
+                <p><b>${escapeHtml(productDisplayName(item.name))}</b><span>${item.quantity} sold - ${money(item.revenue)}</span></p>
             `).join("") : "<p>No sales analytics yet.</p>"}
         </div>
         <small>Connect Google Analytics or Tag Manager in production for traffic and conversion tracking.</small>

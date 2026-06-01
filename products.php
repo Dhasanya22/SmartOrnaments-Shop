@@ -18,6 +18,7 @@ $categoryLabels = [
 
 function imageName($image) {
     $name = pathinfo($image, PATHINFO_FILENAME);
+    $name = preg_replace("/\s*\(\d+\)(?=\s|$)/", "", $name);
     return trim(preg_replace("/\s+/", " ", $name));
 }
 
@@ -215,7 +216,7 @@ function ensureProductsTable($conn, $defaultProducts) {
             type VARCHAR(80) NOT NULL DEFAULT 'bracelet',
             category VARCHAR(100) NOT NULL DEFAULT 'Bracelets',
             description TEXT,
-            stock INT NOT NULL DEFAULT 0,
+            stock INT NOT NULL DEFAULT 20,
             rating DECIMAL(2,1) NOT NULL DEFAULT 0.0,
             featured TINYINT(1) NOT NULL DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -232,6 +233,11 @@ function ensureProductsTable($conn, $defaultProducts) {
     $row = $result->fetch_assoc();
 
     if ((int)$row["total"] > 0) {
+        $stockResult = $conn->query("SELECT COUNT(*) AS total, SUM(CASE WHEN stock > 0 THEN 1 ELSE 0 END) AS in_stock FROM products");
+        $stockRow = $stockResult->fetch_assoc();
+        if ((int)$stockRow["total"] > 0 && (int)$stockRow["in_stock"] === 0) {
+            $conn->query("UPDATE products SET stock = 20 WHERE stock <= 0");
+        }
         return;
     }
 

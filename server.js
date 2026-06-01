@@ -20,13 +20,20 @@ const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 60_000);
 const RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_MAX || 120);
 const rateLimitBuckets = new Map();
 
+function cleanProductDisplayText(value) {
+    return String(value || "")
+        .replace(/\s*\(\d+\)(?=\s|$)/g, "")
+        .replace(/\s{2,}/g, " ")
+        .trim();
+}
+
 function nameFromImagePath(image) {
-    return String(image || "")
+    return cleanProductDisplayText(String(image || "")
         .split("/")
         .pop()
         .replace(/\.[^.]+$/, "")
         .replace(/\s+/g, " ")
-        .trim();
+        .trim());
 }
 
 function slugFromText(value) {
@@ -221,6 +228,11 @@ function readDb() {
     }
 
     const normalizedProducts = db.products.map(product => normalizeProduct(product, product));
+    if (normalizedProducts.length && normalizedProducts.every(product => Number(product.stock || 0) <= 0)) {
+        normalizedProducts.forEach(product => {
+            product.stock = 20;
+        });
+    }
     if (JSON.stringify(normalizedProducts) !== JSON.stringify(db.products)) {
         db.products = normalizedProducts;
         changed = true;
