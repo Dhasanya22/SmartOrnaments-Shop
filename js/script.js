@@ -1,5 +1,5 @@
 function money(price) {
-    return "Rs. " + price;
+    return "Rs. " + Number(price || 0);
 }
 
 function orderMoney(price) {
@@ -973,7 +973,13 @@ const useBackend = location.protocol === "http:" || location.protocol === "https
 const adminEmail = "smartornaments.shop@gmail.com";
 const ownerEmail = "smartornaments.shop@gmail.com";
 const legacyAdminUsername = "admin";
-const orderStatuses = ["Pending", "Making", "Shipped", "Delivered"];
+const cartStorageKey = "cart";
+const cartItemsStorageKey = "cartItems";
+const orderStatuses = ["Processing", "Packed", "Shipped", "Delivered"];
+const couponRules = {
+    WELCOME10: { type: "percent", value: 10, label: "WELCOME10 - 10% off" },
+    SAVE50: { type: "flat", value: 50, label: "SAVE50 - Rs. 50 off" }
+};
 const festivalCollections = {
     birthday: {
         title: "Birthday Collection",
@@ -1008,15 +1014,17 @@ function isAdminLoginId(value) {
 
 async function apiRequest(path, options = {}) {
     const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
-    const token = localStorage.getItem("authToken");
+    const token = localStorage.getItem("authToken") || localStorage.getItem("token");
+    const apiBaseUrl = window.SMARTORNAMENTS_API_URL || localStorage.getItem("apiBaseUrl") || "";
+    const url = /^https?:\/\//i.test(path) ? path : apiBaseUrl + path;
 
     if (token) headers.Authorization = "Bearer " + token;
 
-    const response = await fetch(path, { ...options, headers });
+    const response = await fetch(url, { ...options, headers });
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-        throw new Error(data.error || "Request failed");
+        throw new Error(data.message || data.error || "Request failed");
     }
 
     return data;
@@ -1137,6 +1145,24 @@ const productCategories = [
             "images/Accessories/Neck Chain.jpg",
             "images/Accessories/Resin Transparent Earrings.jpg"
         ]
+    },
+    {
+        value: "led-gifts",
+        label: "LED Gifts",
+        image: "images/Resin Frame Work/Resin Frame (4).jpg",
+        description: "Light-up personalized keepsakes for names, dates, and photos.",
+        gallery: [
+            "images/Resin Frame Work/Resin Frame (4).jpg"
+        ]
+    },
+    {
+        value: "couple-gifts",
+        label: "Couple Gifts",
+        image: "images/Braclet/Couple Braclet.jpg",
+        description: "Matching keepsakes and romantic custom gifts for two.",
+        gallery: [
+            "images/Braclet/Couple Braclet.jpg"
+        ]
     }
 ];
 
@@ -1164,7 +1190,9 @@ const categoryDefaultPrices = {
     "name-board-fridge-magnet": 599,
     keychain: 149,
     "hair-accessories": 129,
-    "thread-work-bangle-earrings": 159
+    "thread-work-bangle-earrings": 159,
+    "led-gifts": 999,
+    "couple-gifts": 299
 };
 
 const categoryOccasions = {
@@ -1173,7 +1201,9 @@ const categoryOccasions = {
     "name-board-fridge-magnet": ["birthday", "anniversary"],
     keychain: ["birthday", "friendship-day", "valentines-day"],
     "hair-accessories": ["birthday", "friendship-day"],
-    "thread-work-bangle-earrings": ["birthday", "friendship-day", "valentines-day"]
+    "thread-work-bangle-earrings": ["birthday", "friendship-day", "valentines-day"],
+    "led-gifts": ["birthday", "anniversary", "valentines-day"],
+    "couple-gifts": ["anniversary", "valentines-day"]
 };
 
 function nameFromImagePath(image) {
@@ -1206,7 +1236,10 @@ function productsFromCategoryImages() {
                 image,
                 images: [image],
                 type: category.value,
+                category: category.label,
                 description: `${category.description} Choose the ${name} design and personalize it your way.`,
+                stock: 20,
+                rating: Number((4.6 + (index % 4) / 10).toFixed(1)),
                 featured: index === 0,
                 occasions: categoryOccasions[category.value] || ["birthday"]
             };
@@ -1215,6 +1248,29 @@ function productsFromCategoryImages() {
 }
 
 const defaultProducts = productsFromCategoryImages();
+
+function normalizeShopProduct(product = {}) {
+    const type = productTypeValue(product);
+    const images = productImages({
+        ...product,
+        type
+    });
+    const hasStock = product.stock !== undefined && product.stock !== null && product.stock !== "";
+    const stock = Number(product.stock);
+    const rating = Number(product.rating);
+
+    return {
+        ...product,
+        id: productIdValue(product) || makeProductId(product.name || "product"),
+        image: images[0],
+        images,
+        type,
+        category: product.category || productCategoryLabel(type),
+        description: productDescription({ ...product, type }),
+        stock: hasStock && Number.isFinite(stock) ? Math.max(Math.floor(stock), 0) : 20,
+        rating: Number.isFinite(rating) ? Math.min(Math.max(rating, 0), 5) : 0
+    };
+}
 
 function productCategoryData(value) {
     return productCategories.find(item => item.value === value);
@@ -1233,6 +1289,14 @@ function productCategoryImage(value) {
     return productCategoryData(value)?.image || "images/Logo.png";
 }
 
+function productIdValue(product) {
+    return String(product?.id || product?._id || "").trim();
+}
+
+function productCategoryDisplay(product) {
+    return String(product?.category || productCategoryLabel(productTypeValue(product))).trim();
+}
+
 function productTypeValue(product) {
     const type = product?.type || "";
 
@@ -1240,11 +1304,13 @@ function productTypeValue(product) {
         return type;
     }
 
-    const name = String(product?.name || "").toLowerCase();
+    const name = [product?.name, product?.category].join(" ").toLowerCase();
 
     if (name.includes("bracelet")) return "bracelet";
-    if (name.includes("resin")) return "resin-work";
+    if (name.includes("frame") || name.includes("resin")) return "resin-work";
     if (name.includes("magnet") || name.includes("name board")) return "name-board-fridge-magnet";
+    if (name.includes("led")) return "led-gifts";
+    if (name.includes("couple")) return "couple-gifts";
     if (name.includes("hair")) return "hair-accessories";
     if (name.includes("bangle") || name.includes("earring")) return "thread-work-bangle-earrings";
 
@@ -1318,20 +1384,87 @@ function productDescription(product) {
     return legacyProductDescriptions[id] || description || productCategoryDescription(productTypeValue(product));
 }
 
+function productStock(product) {
+    const stock = Number(product?.stock);
+    return Number.isFinite(stock) ? Math.max(Math.floor(stock), 0) : 0;
+}
+
+function productStockStatus(product) {
+    const stock = productStock(product);
+
+    if (stock <= 0) {
+        return { label: "Out of Stock", className: "out" };
+    }
+
+    if (stock <= 2) {
+        return { label: `Only ${stock} Left`, className: "low" };
+    }
+
+    return { label: "In Stock", className: "" };
+}
+
+function productRating(product) {
+    const explicitRating = Number(product?.rating);
+
+    if (Number.isFinite(explicitRating) && explicitRating > 0) {
+        return explicitRating.toFixed(1);
+    }
+
+    const seed = String(product?.id || product?.name || "gift")
+        .split("")
+        .reduce((sum, char) => sum + char.charCodeAt(0), 0);
+
+    return (4.6 + (seed % 4) / 10).toFixed(1);
+}
+
+function renderProductSkeletons(container, count = 4) {
+    if (!container) return;
+
+    container.innerHTML = Array.from({ length: count }, () => `
+        <div class="card product-card skeleton-card" aria-hidden="true">
+            <div class="skeleton skeleton-image"></div>
+            <div class="skeleton skeleton-line wide"></div>
+            <div class="skeleton skeleton-line"></div>
+            <div class="skeleton skeleton-line short"></div>
+        </div>
+    `).join("");
+}
+
 function renderCategoryTiles() {
     const containers = document.querySelectorAll("[data-category-tiles]");
     if (!containers.length) return;
 
-    const tiles = productCategories.map(category => `
-        <button type="button" class="category-card" onclick="filterEmotion('${quote(category.value)}')">
-            <img src="${category.image}" alt="${escapeHtml(category.label)}" loading="lazy">
-            <span>${escapeHtml(category.label)}</span>
-            <small>${escapeHtml(category.description)}</small>
-        </button>
-    `).join("");
-
     containers.forEach(container => {
-        container.innerHTML = tiles;
+        const isHome = container.getAttribute("data-category-tiles") === "home";
+        const categories = isHome
+            ? [
+                productCategoryData("keychain"),
+                productCategoryData("resin-work"),
+                productCategoryData("bracelet"),
+                {
+                    value: "birthday",
+                    label: "Birthday Gifts",
+                    image: "images/Resin Keychain/Resin Dual Color Keychain.jpg",
+                    description: "Names, colors, and tiny keepsakes made for birthday surprises.",
+                    festival: true
+                },
+                {
+                    value: "valentines-day",
+                    label: "Couple Gifts",
+                    image: "images/Braclet/Couple Braclet.jpg",
+                    description: "Matching bracelets and romantic keepsakes for two.",
+                    festival: true
+                }
+            ].filter(Boolean)
+            : productCategories;
+
+        container.innerHTML = categories.map(category => `
+            <button type="button" class="category-card" onclick="${category.festival ? `filterFestival('${quote(category.value)}')` : `filterEmotion('${quote(category.value)}')`}">
+                <img src="${category.image}" alt="${escapeHtml(category.label)}" loading="lazy">
+                <span>${escapeHtml(category.label)}</span>
+                <small>${escapeHtml(category.description)}</small>
+            </button>
+        `).join("");
     });
 }
 
@@ -1341,7 +1474,7 @@ function getProducts() {
 
     try {
         const products = JSON.parse(savedProducts);
-        return Array.isArray(products) ? products : defaultProducts;
+        return Array.isArray(products) ? products.map(normalizeShopProduct) : defaultProducts;
     } catch (error) {
         localStorage.removeItem("products");
         return defaultProducts;
@@ -1371,7 +1504,7 @@ async function getProductsData() {
 }
 
 function saveProducts(products) {
-    localStorage.setItem("products", JSON.stringify(products));
+    localStorage.setItem("products", JSON.stringify((Array.isArray(products) ? products : []).map(normalizeShopProduct)));
 }
 
 async function phpJsonRequest(path, options = {}, fallbackError = "Request failed") {
@@ -1457,17 +1590,35 @@ async function phpStatsRequest(path, options = {}) {
     return phpJsonRequest(path, options, "Stats request failed");
 }
 
+async function apiFormDataRequest(path, formData, options = {}) {
+    const headers = { ...(options.headers || {}) };
+    const token = localStorage.getItem("authToken") || localStorage.getItem("token");
+    const apiBaseUrl = window.SMARTORNAMENTS_API_URL || localStorage.getItem("apiBaseUrl") || "";
+    const url = /^https?:\/\//i.test(path) ? path : apiBaseUrl + path;
+
+    if (token) headers.Authorization = "Bearer " + token;
+
+    const response = await fetch(url, { ...options, method: options.method || "POST", headers, body: formData });
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+        throw new Error(data.message || data.error || "Upload failed");
+    }
+
+    return data;
+}
+
 function makeProductId(name) {
     return name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") + "-" + Date.now();
 }
 
 function findProduct(id) {
-    return getProducts().find(product => product.id === id);
+    return getProducts().find(product => productIdValue(product) === id);
 }
 
 async function findProductData(id) {
     const products = await getProductsData();
-    return products.find(product => product.id === id);
+    return products.map(normalizeShopProduct).find(product => productIdValue(product) === id);
 }
 
 function quote(value) {
@@ -1475,41 +1626,58 @@ function quote(value) {
 }
 
 function productCard(product, options = {}) {
+    product = normalizeShopProduct(product);
     const images = productImages(product);
     const photoCount = images.length;
     const typeValue = productTypeValue(product);
     const description = productDescription(product);
     const festivals = productFestivalValues(product).join(" ");
     const displayName = escapeHtml(product.name || "Product");
-    const categoryLabel = escapeHtml(productCategoryLabel(typeValue));
+    const productId = productIdValue(product);
+    const categoryLabel = escapeHtml(productCategoryDisplay(product));
     const descriptionText = escapeHtml(description);
-    const orderButton = `<button onclick="orderNow('${quote(product.name)}', ${product.price})">Order</button>`;
-    const customizeButton = options.admin
+    const price = Number(product.price || 0);
+    const rating = productRating(product);
+    const stock = productStock(product);
+    const stockStatus = productStockStatus(product);
+    const stockClass = stockStatus.className ? " " + stockStatus.className : "";
+    const detailsButton = options.admin
         ? ""
-        : `<button onclick="openProduct('${quote(product.id)}')">Customize</button>`;
+        : `<button type="button" class="secondary-card-btn" onclick="openProduct('${quote(productId)}')">Customize</button>`;
     const addCartButton = options.hideCart
         ? ""
-        : `<button onclick="addToCart('${quote(product.name)}', ${product.price})">Add to Cart</button>`;
+        : `<button type="button" class="primary-card-btn" ${stock <= 0 ? "disabled" : ""} onclick="addProductToCart('${quote(productId)}')">${stock <= 0 ? "Out of Stock" : "Add to Cart"}</button>`;
     const adminButtons = options.admin
         ? `
-            <button onclick="editAdminProduct('${quote(product.id)}')">Edit</button>
-            <button onclick="deleteAdminProduct('${quote(product.id)}')">Delete</button>
+            <button type="button" onclick="editAdminProduct('${quote(productId)}')">Edit</button>
+            <button type="button" onclick="deleteAdminProduct('${quote(productId)}')">Delete</button>
         `
         : "";
 
     return `
-        <div class="card" data-type="${typeValue}" data-festivals="${festivals}">
-            <img src="${images[0]}" alt="${displayName}" loading="lazy">
-            <h3 onclick="openProduct('${quote(product.id)}')">${displayName}</h3>
-            <small class="product-category">${categoryLabel}</small>
-            <p>${money(product.price)}</p>
-            <small>${photoCount} ${photoCount === 1 ? "photo" : "photos"}</small>
-            <small class="product-description">${descriptionText}</small>
-            ${orderButton}
-            ${customizeButton}
-            ${addCartButton}
-            ${adminButtons}
-        </div>
+        <article class="card product-card" data-type="${typeValue}" data-category="${escapeHtml(productCategoryDisplay(product).toLowerCase())}" data-festivals="${festivals}">
+            <button type="button" class="product-image-button" onclick="openProduct('${quote(productId)}')" aria-label="View ${displayName}">
+                <img src="${images[0]}" alt="${displayName}" loading="lazy">
+            </button>
+            <div class="product-card-body">
+                <div class="product-meta-row">
+                    <small class="product-category">${categoryLabel}</small>
+                    <span class="product-rating" aria-label="${rating} out of 5 rating">${rating}</span>
+                </div>
+                <h3>
+                    <button type="button" class="product-title-button" onclick="openProduct('${quote(productId)}')">${displayName}</button>
+                </h3>
+                <p class="product-card-price">${money(price)}</p>
+                <small class="stock-pill${stockClass}">${stockStatus.label}</small>
+                <small class="photo-count">${photoCount} ${photoCount === 1 ? "photo" : "photos"}</small>
+                <small class="product-description">${descriptionText}</small>
+            </div>
+            <div class="product-card-actions">
+                ${detailsButton}
+                ${addCartButton}
+                ${adminButtons}
+            </div>
+        </article>
     `;
 }
 
@@ -1517,8 +1685,22 @@ async function renderFeaturedProducts() {
     const container = document.getElementById("featuredProducts");
     if (!container) return;
 
-    const products = (await getProductsData()).filter(product => product.featured).slice(0, 3);
-    container.innerHTML = products.map(product => productCard(product, { hideCart: true, orderAddsToCart: true })).join("");
+    renderProductSkeletons(container, 3);
+    const products = (await getProductsData()).filter(product => product.featured).slice(0, 4);
+    container.innerHTML = products.length
+        ? products.map(product => productCard(product)).join("")
+        : `<div class="empty-panel">No featured products yet.</div>`;
+}
+
+async function renderTrendingProducts() {
+    const container = document.getElementById("trendingProducts");
+    if (!container) return;
+
+    renderProductSkeletons(container, 4);
+    const products = (await getProductsData()).filter(product => !product.featured).slice(0, 4);
+    container.innerHTML = products.length
+        ? products.map(product => productCard(product)).join("")
+        : `<div class="empty-panel">Trending products will appear soon.</div>`;
 }
 
 function getBestSellerFromOrders(orders, products = getProducts()) {
@@ -1589,7 +1771,7 @@ async function renderBestSellerSection() {
                 <h3>${escapeHtml(productName)}</h3>
                 <p>${Number(bestSeller.quantity || 0)} orders placed for this product.</p>
                 ${price ? `<p><b>${money(price)}</b></p>` : ""}
-                <button onclick="${product.id ? `openProduct('${quote(product.id)}')` : `filterEmotion('keychain')`}">Customize</button>
+                <button onclick="${productIdValue(product) ? `openProduct('${quote(productIdValue(product))}')` : `filterEmotion('keychain')`}">Customize</button>
             </div>
         </div>
     `;
@@ -1599,8 +1781,12 @@ async function renderProducts() {
     const container = document.getElementById("productList");
     if (!container) return;
 
-    container.innerHTML = (await getProductsData()).map(product => productCard(product)).join("");
-    applyEmotionFilter();
+    renderProductSkeletons(container, 8);
+    const products = await getProductsData();
+    container.innerHTML = products.length
+        ? products.map(product => productCard(product)).join("")
+        : `<div class="empty-panel">No products available yet.</div>`;
+    initProductSearchFromQuery();
 }
 
 async function loadAdminProducts() {
@@ -1611,10 +1797,30 @@ async function loadAdminProducts() {
     const totalProducts = document.getElementById("totalProducts");
 
     if (totalProducts) totalProducts.innerText = products.length;
+    updateInventoryStats(products);
 
     container.innerHTML = products.length
         ? products.map(product => productCard(product, { admin: true, hideCart: true })).join("")
         : "<p>No products found.</p>";
+}
+
+function updateInventoryStats(products) {
+    const lowStock = products.filter(product => {
+        const stock = productStock(product);
+        return stock > 0 && stock <= 2;
+    }).length;
+    const outOfStock = products.filter(product => productStock(product) <= 0).length;
+    const inventoryCount = document.getElementById("inventoryCount");
+    const lowStockCount = document.getElementById("lowStockCount");
+    const onlyFewLeftCount = document.getElementById("onlyFewLeftCount");
+    const outOfStockCount = document.getElementById("outOfStockCount");
+    const outOfStockCountInline = document.getElementById("outOfStockCountInline");
+
+    if (inventoryCount) inventoryCount.innerText = products.length;
+    if (lowStockCount) lowStockCount.innerText = lowStock;
+    if (onlyFewLeftCount) onlyFewLeftCount.innerText = lowStock;
+    if (outOfStockCount) outOfStockCount.innerText = outOfStock;
+    if (outOfStockCountInline) outOfStockCountInline.innerText = outOfStock;
 }
 
 function getAdminImageValues() {
@@ -1631,6 +1837,48 @@ function getAdminImageValues() {
     return images;
 }
 
+function setFirstEmptyAdminImage(value) {
+    const fields = Array.from(document.querySelectorAll(".admin-image-field"));
+    const target = fields.find(field => !field.value.trim()) || fields[0];
+
+    if (target) {
+        target.value = value;
+    }
+}
+
+async function uploadAdminProductImage(input) {
+    const file = input.files?.[0];
+    const msg = document.getElementById("imageUploadMsg");
+
+    if (!file) return;
+
+    if (msg) msg.innerText = "Uploading image...";
+
+    if (useBackend) {
+        try {
+            const formData = new FormData();
+            formData.append("image", file);
+            const data = await apiFormDataRequest("/api/products/upload", formData);
+            setFirstEmptyAdminImage(data.image);
+            if (msg) msg.innerText = "Image uploaded to Cloudinary.";
+            return;
+        } catch (error) {
+            if (!isApiUnavailableError(error) && !/cloudinary/i.test(error.message)) {
+                if (msg) msg.innerText = error.message;
+                return;
+            }
+
+            console.warn(error.message);
+        }
+    }
+
+    const localImage = await resizeOrderPhoto(file);
+    if (localImage?.dataUrl) {
+        setFirstEmptyAdminImage(localImage.dataUrl);
+        if (msg) msg.innerText = "Image attached locally. Add Cloudinary keys for CDN uploads.";
+    }
+}
+
 function getProductFormData() {
     const id = document.getElementById("productId").value;
     const name = document.getElementById("adminProductName").value.trim();
@@ -1638,7 +1886,11 @@ function getProductFormData() {
     const images = getAdminImageValues();
     const image = images[0] || "";
     const type = document.getElementById("adminProductType").value;
+    const typeOption = document.getElementById("adminProductType").selectedOptions[0];
+    const category = typeOption ? typeOption.textContent.trim() : productCategoryLabel(type);
     const description = document.getElementById("adminProductDescription").value.trim();
+    const stock = Number(document.getElementById("adminProductStock")?.value || 0);
+    const rating = Number(document.getElementById("adminProductRating")?.value || 0);
     const featured = document.getElementById("adminProductFeatured").checked;
 
     if (!name || !price || !image) {
@@ -1652,7 +1904,10 @@ function getProductFormData() {
         image,
         images,
         type,
+        category,
         description,
+        stock: Math.max(Math.floor(stock), 0),
+        rating: Math.min(Math.max(rating, 0), 5),
         featured
     };
 }
@@ -1712,7 +1967,7 @@ async function saveAdminProduct() {
     }
 
     const products = getProducts();
-    const existingIndex = products.findIndex(item => item.id === product.id);
+    const existingIndex = products.findIndex(item => productIdValue(item) === product.id);
     if (existingIndex >= 0) products[existingIndex] = product;
     else {
         product.id = makeProductId(product.name);
@@ -1736,7 +1991,7 @@ async function editAdminProduct(id) {
     if (!product) return;
 
     resetProductForm();
-    document.getElementById("productId").value = product.id;
+    document.getElementById("productId").value = productIdValue(product);
     document.getElementById("adminProductName").value = product.name;
     document.getElementById("adminProductPrice").value = product.price;
     productImages(product).forEach((image, index) => {
@@ -1745,6 +2000,10 @@ async function editAdminProduct(id) {
     });
     document.getElementById("adminProductType").value = productTypeValue(product);
     document.getElementById("adminProductDescription").value = product.description || "";
+    const stockField = document.getElementById("adminProductStock");
+    const ratingField = document.getElementById("adminProductRating");
+    if (stockField) stockField.value = productStock(product);
+    if (ratingField) ratingField.value = productRating(product);
     document.getElementById("adminProductFeatured").checked = Boolean(product.featured);
     document.getElementById("productAdminMsg").innerText = "Editing " + product.name;
 }
@@ -1782,8 +2041,8 @@ async function deleteAdminProduct(id) {
         }
     }
 
-    const existingProduct = getProducts().find(product => product.id === id);
-    const products = getProducts().filter(product => product.id !== id);
+    const existingProduct = getProducts().find(product => productIdValue(product) === id);
+    const products = getProducts().filter(product => productIdValue(product) !== id);
     saveProducts(products);
     addLocalNotification(
         "product",
@@ -1801,7 +2060,8 @@ function resetProductForm() {
         "productId",
         "adminProductName",
         "adminProductPrice",
-        "adminProductDescription"
+        "adminProductDescription",
+        "adminProductUpload"
     ];
 
     formIds.forEach(id => {
@@ -1810,16 +2070,22 @@ function resetProductForm() {
     });
 
     const type = document.getElementById("adminProductType");
+    const stock = document.getElementById("adminProductStock");
+    const rating = document.getElementById("adminProductRating");
     const featured = document.getElementById("adminProductFeatured");
     const msg = document.getElementById("productAdminMsg");
+    const uploadMsg = document.getElementById("imageUploadMsg");
 
     document.querySelectorAll(".admin-image-field").forEach(field => {
         field.value = "";
     });
 
     if (type) type.value = "bracelet";
+    if (stock) stock.value = "20";
+    if (rating) rating.value = "4.8";
     if (featured) featured.checked = false;
     if (msg) msg.innerText = "";
+    if (uploadMsg) uploadMsg.innerText = "";
 }
 
 async function getUsersData() {
@@ -2259,11 +2525,40 @@ function collectProductCustomization() {
     });
 }
 
-function addCartItem(name, price, qty = 1, customization = {}) {
+function getCartQuantityForProduct(product) {
+    const productId = productIdValue(product);
+    const name = String(product?.name || "").toLowerCase();
+
+    return getLocalCart().reduce((sum, item) => {
+        const sameId = productId && String(item.productId || item.id || "") === productId;
+        const sameName = !productId && String(item.name || "").toLowerCase() === name;
+        return sameId || sameName ? sum + Number(item.qty || 1) : sum;
+    }, 0);
+}
+
+function canAddProductToCart(product, qty) {
+    const stock = productStock(product);
+
+    if (stock <= 0) {
+        alert("This product is out of stock.");
+        return false;
+    }
+
+    if (getCartQuantityForProduct(product) + qty > stock) {
+        alert(`Only ${stock} available for ${product.name}.`);
+        return false;
+    }
+
+    return true;
+}
+
+function addCartItem(name, price, qty = 1, customization = {}, product = {}) {
     const cart = getLocalCart();
     const cleanCustomization = cleanCustomizationData(customization);
+    const productId = productIdValue(product);
     const existingItem = cart.find(item =>
-        item.name === name
+        String(item.productId || "") === productId
+        && item.name === name
         && Number(item.price) === Number(price)
         && customizationKey(item.customization) === customizationKey(cleanCustomization)
     );
@@ -2271,11 +2566,37 @@ function addCartItem(name, price, qty = 1, customization = {}) {
     if (existingItem) {
         existingItem.qty = Number(existingItem.qty || 1) + qty;
     } else {
-        cart.push({ name, price: Number(price), qty, customization: cleanCustomization });
+        cart.push({
+            productId,
+            name,
+            price: Number(price),
+            qty,
+            image: product.image || "",
+            category: productCategoryDisplay(product),
+            customization: cleanCustomization
+        });
     }
 
-    localStorage.setItem("cart", JSON.stringify(cart));
-    updateCartCount();
+    saveLocalCart(cart);
+}
+
+async function addProductToCart(id, qty = 1, customization = {}) {
+    const product = await findProductData(id);
+
+    if (!product) {
+        alert("Product not found");
+        return false;
+    }
+
+    const quantity = Math.max(Number(qty || 1), 1);
+
+    if (!canAddProductToCart(product, quantity)) {
+        return false;
+    }
+
+    addCartItem(product.name, product.price, quantity, customization, product);
+    alert("Added to cart");
+    return true;
 }
 
 function orderNow(product, price) {
@@ -2291,7 +2612,8 @@ function orderNow(product, price) {
 }
 
 function searchProduct() {
-    const input = document.getElementById("search").value.toLowerCase();
+    const searchEl = document.getElementById("search");
+    const input = (searchEl?.value || "").toLowerCase();
     const cards = document.getElementsByClassName("card");
     const filters = getActiveProductFilters();
     let visibleCount = 0;
@@ -2300,33 +2622,81 @@ function searchProduct() {
         const title = cards[i].getElementsByTagName("h3")[0].innerText.toLowerCase();
         const category = cards[i].querySelector(".product-category")?.innerText.toLowerCase() || "";
         const description = cards[i].querySelector(".product-description")?.innerText.toLowerCase() || "";
+        const stock = cards[i].querySelector(".stock-pill")?.innerText.toLowerCase() || "";
         const itemType = cards[i].getAttribute("data-type");
         const itemFestivals = (cards[i].getAttribute("data-festivals") || "").split(" ");
-        const matchSearch = title.includes(input) || category.includes(input) || description.includes(input);
+        const matchSearch = title.includes(input) || category.includes(input) || description.includes(input) || stock.includes(input);
         const matchType = !filters.type || itemType === filters.type;
         const matchFestival = !filters.festival || itemFestivals.includes(filters.festival);
         const isVisible = matchSearch && matchType && matchFestival;
 
-        cards[i].style.display = isVisible ? "block" : "none";
+        cards[i].style.display = isVisible ? "" : "none";
         if (isVisible) visibleCount++;
     }
 
     updateNoProductsMessage(visibleCount);
 }
 
+function initProductSearchFromQuery() {
+    const params = new URLSearchParams(window.location.search);
+    const query = params.get("search") || "";
+    const searchEl = document.getElementById("search");
+
+    if (searchEl) {
+        searchEl.value = query;
+    }
+
+    if (query) {
+        searchProduct();
+    } else {
+        applyEmotionFilter();
+    }
+}
+
+function handleNavSearch(event) {
+    event.preventDefault();
+
+    const form = event.currentTarget;
+    const input = form.querySelector("input[type='search']");
+    const query = (input?.value || "").trim();
+
+    if (!query) {
+        window.location.href = "products.html";
+        return;
+    }
+
+    const searchEl = document.getElementById("search");
+    const isProductsPage = /(^|\/)products\.html$/i.test(window.location.pathname) || document.getElementById("productList");
+
+    if (isProductsPage && searchEl) {
+        const params = new URLSearchParams(window.location.search);
+        params.set("search", query);
+        history.replaceState(null, "", "products.html?" + params.toString());
+        searchEl.value = query;
+        searchProduct();
+        return;
+    }
+
+    window.location.href = "products.html?search=" + encodeURIComponent(query);
+}
+
 async function openProduct(id) {
     const product = await findProductData(id);
     if (!product) return;
     const images = productImages(product);
+    const productId = productIdValue(product);
 
-    localStorage.setItem("productId", product.id);
+    localStorage.setItem("productId", productId);
     localStorage.setItem("productName", product.name);
     localStorage.setItem("productPrice", product.price);
     localStorage.setItem("productImage", images[0]);
     localStorage.setItem("productImages", JSON.stringify(images));
     localStorage.setItem("productType", productTypeValue(product));
+    localStorage.setItem("productCategory", productCategoryDisplay(product));
     localStorage.setItem("productDescription", productDescription(product));
-    window.location.href = "product.html";
+    localStorage.setItem("productStock", productStock(product));
+    localStorage.setItem("productRating", productRating(product));
+    window.location.href = "product.html?id=" + encodeURIComponent(productId);
 }
 
 function getSavedProductImages() {
@@ -2351,27 +2721,61 @@ function setProductImage(image) {
     });
 }
 
-function loadProduct() {
-    const name = localStorage.getItem("productName") || "Product";
-    const price = Number(localStorage.getItem("productPrice") || 0);
-    const images = getSavedProductImages();
-    const image = images[0];
-    const description = localStorage.getItem("productDescription")
-        || productCategoryDescription(localStorage.getItem("productType"));
+function productIdFromLocation() {
+    const params = new URLSearchParams(window.location.search);
+    const queryId = params.get("id");
+    const pathMatch = window.location.pathname.match(/\/products\/([^/]+)$/i);
 
+    return queryId || (pathMatch ? decodeURIComponent(pathMatch[1]) : "");
+}
+
+function renderProductDetails(product) {
+    product = normalizeShopProduct(product);
+    const name = product.name || "Product";
+    const price = Number(product.price || 0);
+    const images = productImages(product);
+    const image = images[0];
+    const description = productDescription(product);
+    const stock = productStock(product);
+    const stockStatus = productStockStatus(product);
     const nameEl = document.getElementById("productName");
     const priceEl = document.getElementById("productPrice");
     const imgEl = document.getElementById("productImg");
     const descEl = document.getElementById("productDescription");
     const galleryEl = document.getElementById("productGallery");
+    const categoryEl = document.getElementById("productCategory");
+    const ratingEl = document.getElementById("productRating");
+    const stockEl = document.getElementById("productStock");
+    const qtyEl = document.getElementById("qty");
 
     orderPhotoStorage.product = null;
     renderPhotoPreview("customPhotoPreview", null);
+
+    localStorage.setItem("productId", productIdValue(product));
+    localStorage.setItem("productName", name);
+    localStorage.setItem("productPrice", price);
+    localStorage.setItem("productImage", image);
+    localStorage.setItem("productImages", JSON.stringify(images));
+    localStorage.setItem("productType", productTypeValue(product));
+    localStorage.setItem("productCategory", productCategoryDisplay(product));
+    localStorage.setItem("productDescription", description);
+    localStorage.setItem("productStock", stock);
+    localStorage.setItem("productRating", productRating(product));
 
     if (nameEl) nameEl.innerText = name;
     if (priceEl) priceEl.innerText = money(price);
     if (imgEl) imgEl.src = image;
     if (descEl) descEl.innerText = description;
+    if (categoryEl) categoryEl.innerText = productCategoryDisplay(product);
+    if (ratingEl) ratingEl.innerText = productRating(product);
+    if (stockEl) {
+        stockEl.innerText = stockStatus.label;
+        stockEl.className = "stock-pill" + (stockStatus.className ? " " + stockStatus.className : "");
+    }
+    if (qtyEl) {
+        qtyEl.max = stock > 0 ? String(stock) : "1";
+        qtyEl.disabled = stock <= 0;
+    }
     if (galleryEl) {
         galleryEl.innerHTML = images.map((item, index) => `
             <button type="button" class="gallery-thumb ${index === 0 ? "active" : ""}" data-image="${escapeHtml(item)}" onclick="setProductImage('${quote(item)}')">
@@ -2381,12 +2785,38 @@ function loadProduct() {
     }
 }
 
-function orderProduct() {
-    const name = localStorage.getItem("productName");
-    const price = localStorage.getItem("productPrice");
-    const qty = Number(document.getElementById("qty")?.value || 1);
+async function loadProduct() {
+    const routeId = productIdFromLocation();
 
-    addCartItem(name, price, qty, collectProductCustomization());
+    if (routeId) {
+        const product = await findProductData(routeId);
+
+        if (product) {
+            renderProductDetails(product);
+            return;
+        }
+    }
+
+    renderProductDetails({
+        id: localStorage.getItem("productId"),
+        name: localStorage.getItem("productName") || "Product",
+        price: Number(localStorage.getItem("productPrice") || 0),
+        image: localStorage.getItem("productImage"),
+        images: getSavedProductImages(),
+        type: localStorage.getItem("productType"),
+        category: localStorage.getItem("productCategory"),
+        description: localStorage.getItem("productDescription"),
+        stock: Number(localStorage.getItem("productStock") || 0),
+        rating: Number(localStorage.getItem("productRating") || 0)
+    });
+}
+
+async function orderProduct() {
+    const productId = localStorage.getItem("productId");
+    const qty = Number(document.getElementById("qty")?.value || 1);
+    const added = await addProductToCart(productId, qty, collectProductCustomization());
+
+    if (!added) return;
 
     if (!localStorage.getItem("loggedInUser")) {
         sessionStorage.removeItem("pendingDirectOrder");
@@ -2402,13 +2832,11 @@ function getPurchasedItems() {
     return orders.flatMap(order => order.items || []);
 }
 
-function addCurrentProductToCart() {
-    const name = localStorage.getItem("productName") || "Product";
-    const price = Number(localStorage.getItem("productPrice") || 0);
+async function addCurrentProductToCart() {
+    const productId = localStorage.getItem("productId");
     const qty = Number(document.getElementById("qty")?.value || 1);
 
-    addCartItem(name, price, qty, collectProductCustomization());
-    alert("Added to cart");
+    await addProductToCart(productId, qty, collectProductCustomization());
 }
 
 function generateGift() {
@@ -2494,7 +2922,7 @@ function applyEmotionFilter() {
         const matchType = !type || itemType === type;
         const matchFestival = !festival || itemFestivals.includes(festival);
         const isVisible = matchType && matchFestival;
-        cards[i].style.display = isVisible ? "block" : "none";
+        cards[i].style.display = isVisible ? "" : "none";
         if (isVisible) visibleCount++;
     }
 
@@ -2758,8 +3186,10 @@ function completeLogin(user, token = "") {
 
     if (token) {
         localStorage.setItem("authToken", token);
+        localStorage.setItem("token", token);
     } else {
         localStorage.removeItem("authToken");
+        localStorage.removeItem("token");
     }
 
     rememberUsername(username);
@@ -2770,7 +3200,9 @@ function completeLogin(user, token = "") {
     }
 
     setAuthMessage("Login successful", "success");
-    setTimeout(() => window.location.href = loginDestination(role), 700);
+    syncCartAfterLogin().finally(() => {
+        setTimeout(() => window.location.href = loginDestination(role), 700);
+    });
 }
 
 function getLocalUsers() {
@@ -2813,11 +3245,88 @@ function saveLocalUsers(users) {
 
 function getLocalCart() {
     try {
-        const cart = JSON.parse(localStorage.getItem("cart") || "[]");
-        return Array.isArray(cart) ? cart : [];
+        const rawCart = localStorage.getItem(cartStorageKey) || localStorage.getItem(cartItemsStorageKey) || "[]";
+        const cart = JSON.parse(rawCart);
+        return Array.isArray(cart)
+            ? cart.map(item => ({ ...item, qty: Number(item.qty || item.quantity || 1) }))
+            : [];
     } catch (error) {
-        localStorage.removeItem("cart");
+        localStorage.removeItem(cartStorageKey);
+        localStorage.removeItem(cartItemsStorageKey);
         return [];
+    }
+}
+
+function saveLocalCart(cart, syncRemote = true) {
+    const items = Array.isArray(cart) ? cart : [];
+    localStorage.setItem(cartStorageKey, JSON.stringify(items));
+    localStorage.setItem(cartItemsStorageKey, JSON.stringify(items));
+    updateCartCount();
+
+    if (syncRemote) {
+        saveCartToBackend();
+    }
+}
+
+function hasAuthToken() {
+    return Boolean(localStorage.getItem("authToken") || localStorage.getItem("token"));
+}
+
+async function saveCartToBackend(cart = getLocalCart()) {
+    if (!useBackend || !hasAuthToken()) return;
+
+    try {
+        await apiRequest("/api/cart", {
+            method: "PUT",
+            body: JSON.stringify({ items: cart })
+        });
+    } catch (error) {
+        if (!isApiUnavailableError(error)) {
+            console.warn(error.message);
+        }
+    }
+}
+
+function cartItemKey(item) {
+    return [
+        item.productId || "",
+        item.name,
+        Number(item.price || 0),
+        JSON.stringify(cleanCustomizationData(item.customization))
+    ].join("|");
+}
+
+function mergeCartItems(localItems, remoteItems) {
+    const merged = new Map();
+
+    [...(remoteItems || []), ...(localItems || [])].forEach(item => {
+        const key = cartItemKey(item);
+        const current = merged.get(key);
+        const qty = Number(item.qty || 1);
+
+        if (current) {
+            current.qty += qty;
+        } else {
+            merged.set(key, { ...item, qty });
+        }
+    });
+
+    return Array.from(merged.values());
+}
+
+async function syncCartAfterLogin() {
+    if (!useBackend || !hasAuthToken()) return;
+
+    try {
+        const data = await apiRequest("/api/cart");
+        const remoteItems = data.cart?.items || [];
+        const merged = mergeCartItems(getLocalCart(), remoteItems);
+        saveLocalCart(merged, false);
+        await saveCartToBackend(merged);
+    } catch (error) {
+        if (!isApiUnavailableError(error)) {
+            console.warn(error.message);
+        }
     }
 }
 
@@ -2840,8 +3349,9 @@ function orderTimestamp() {
 }
 
 function normalizeOrderStatus(status) {
-    if (status === "Confirmed") return "Making";
-    return orderStatuses.includes(status) ? status : "Pending";
+    if (status === "Pending") return "Processing";
+    if (status === "Confirmed" || status === "Making") return "Packed";
+    return orderStatuses.includes(status) ? status : "Processing";
 }
 
 function nextOrderStatus(currentStatus) {
@@ -2851,7 +3361,7 @@ function nextOrderStatus(currentStatus) {
 }
 
 function orderStatusTimeField(status) {
-    if (status === "Making") return "makingAt";
+    if (status === "Packed") return "packedAt";
     if (status === "Shipped") return "shippedAt";
     if (status === "Delivered") return "deliveredAt";
     return "placedAt";
@@ -2870,7 +3380,11 @@ function applyOrderStatus(order, status) {
         order[field] = order[field] || now;
     }
 
-    if (nextStatus === "Making") order.confirmedAt = order.confirmedAt || order.makingAt || now;
+    if (nextStatus === "Packed") {
+        order.packedAt = order.packedAt || order.makingAt || now;
+        order.makingAt = order.makingAt || order.packedAt;
+        order.confirmedAt = order.confirmedAt || order.packedAt || now;
+    }
 
     return order;
 }
@@ -2880,7 +3394,8 @@ function createLocalOrder(orderData) {
     const order = {
         ...orderData,
         id: nextOrderId(),
-        status: "Pending",
+        status: "Processing",
+        paymentStatus: orderData.paymentStatus || "Pending",
         date: now,
         placedAt: now,
         updatedAt: now
@@ -2939,8 +3454,10 @@ function buildOrderConfirmationMessage(order) {
         `Total: ${money(order.total || 0)}`,
         `Status: ${status}`,
         "",
-        status === "Making"
-            ? "We are preparing your order now."
+        status === "Processing"
+            ? "We received your order and it is being prepared."
+            : status === "Packed"
+            ? "Your order has been packed and is ready for dispatch."
             : status === "Shipped"
             ? "Your order has been shipped."
             : status === "Delivered"
@@ -2995,6 +3512,23 @@ async function signup() {
     }
 
     if (useBackend) {
+        try {
+            await apiRequest("/api/auth/register", {
+                method: "POST",
+                body: JSON.stringify(credentials)
+            });
+            setAuthMessage("Account created. Logging in...", "success");
+            await login();
+            return true;
+        } catch (error) {
+            if (isApiUnavailableError(error)) {
+                console.warn(error.message);
+            } else {
+                setAuthMessage(error.message, "error");
+                return false;
+            }
+        }
+
         try {
             await apiRequest("/api/signup", {
                 method: "POST",
@@ -3056,6 +3590,22 @@ async function login() {
     if (!credentials) return false;
 
     if (useBackend) {
+        try {
+            const data = await apiRequest("/api/auth/login", {
+                method: "POST",
+                body: JSON.stringify(credentials)
+            });
+            completeLogin(data.user, data.token);
+            return true;
+        } catch (error) {
+            if (isApiUnavailableError(error)) {
+                console.warn(error.message);
+            } else {
+                setAuthMessage(error.message, "error");
+                return false;
+            }
+        }
+
         try {
             const data = await apiRequest("/api/login", {
                 method: "POST",
@@ -3161,6 +3711,93 @@ function showUser() {
     });
 }
 
+function ensureNavbarControls() {
+    document.querySelectorAll("nav").forEach((nav, index) => {
+        nav.classList.add("site-nav");
+
+        const links = nav.querySelector("ul");
+        if (links) links.classList.add("nav-links");
+
+        let actions = nav.querySelector(".nav-actions, .nav-right");
+        if (!actions) {
+            actions = document.createElement("div");
+            nav.appendChild(actions);
+        }
+
+        actions.classList.add("nav-actions");
+
+        const userDisplay = nav.querySelector("#userDisplay");
+        if (userDisplay && !actions.contains(userDisplay)) {
+            actions.appendChild(userDisplay);
+        }
+
+        const cartLink = nav.querySelector('a[href="cart.html"]');
+        if (cartLink) {
+            const cartItem = cartLink.closest("li");
+            cartLink.classList.add("cart-link");
+            const cartCount = cartLink.querySelector("#cartCount");
+            if (cartCount) cartCount.setAttribute("data-cart-count", "");
+
+            if (!actions.contains(cartLink)) {
+                actions.insertBefore(cartLink, actions.firstChild);
+            }
+
+            if (cartItem && cartItem.parentElement && cartItem.children.length === 0) {
+                cartItem.remove();
+            }
+        }
+
+        if (!actions.querySelector(".login-btn")) {
+            const loginLink = document.createElement("a");
+            loginLink.href = "login.html";
+            loginLink.className = "login-btn";
+            loginLink.innerText = "Login";
+            actions.appendChild(loginLink);
+        }
+
+        if (!nav.querySelector(".nav-search")) {
+            const form = document.createElement("form");
+            form.className = "nav-search";
+            form.onsubmit = handleNavSearch;
+            form.innerHTML = `
+                <label class="sr-only" for="navSearch${index}">Search products</label>
+                <input id="navSearch${index}" type="search" name="search" placeholder="Search custom gifts">
+                <button type="submit" aria-label="Search products"></button>
+            `;
+            nav.insertBefore(form, actions);
+        }
+    });
+
+    showUser();
+    updateCartCount();
+}
+
+function initScrollAnimations() {
+    const animatedEls = document.querySelectorAll("[data-animate]");
+    if (!animatedEls.length) return;
+
+    if (!("IntersectionObserver" in window)) {
+        animatedEls.forEach(el => el.classList.add("show"));
+        return;
+    }
+
+    const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add("show");
+                observer.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.16 });
+
+    animatedEls.forEach(el => observer.observe(el));
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    ensureNavbarControls();
+    initScrollAnimations();
+});
+
 function requireLogin(redirectTo = getCurrentPage()) {
     if (localStorage.getItem("loggedInUser")) {
         return true;
@@ -3172,7 +3809,16 @@ function requireLogin(redirectTo = getCurrentPage()) {
     return false;
 }
 
-function addToCart(name, price) {
+async function addToCart(name, price) {
+    const product = (await getProductsData()).find(item =>
+        String(item.name || "").toLowerCase() === String(name || "").toLowerCase()
+    );
+
+    if (product) {
+        await addProductToCart(productIdValue(product));
+        return;
+    }
+
     addCartItem(name, price);
     alert("Added to cart");
 }
@@ -3180,24 +3826,33 @@ function addToCart(name, price) {
 function loadCart() {
     const cart = getLocalCart();
     const container = document.getElementById("cartItems");
-    let total = 0;
+    const couponField = document.getElementById("couponCode");
 
     initLocationDropdowns();
     restoreCheckoutDetails();
     container.innerHTML = "";
+    if (couponField) couponField.value = getAppliedCouponCode();
 
     if (cart.length === 0) {
-        container.innerHTML = `<p class="empty-state show-empty">Your cart is empty.</p>`;
+        container.innerHTML = `
+            <div class="empty-panel">
+                <h3>Your cart is empty.</h3>
+                <p>Add a personalized gift to start your order.</p>
+                <a href="products.html" class="btn primary-btn">Browse Products</a>
+            </div>
+        `;
         document.getElementById("total").innerText = "";
+        renderPriceBreakdown("cartPriceBreakdown", cart);
         updateOrderSummary();
         return;
     }
 
     cart.forEach((item, i) => {
         const qty = Number(item.qty || 1);
-        total += item.price * qty;
+        const image = item.image || "images/Logo.png";
         container.innerHTML += `
             <div class="cart-card">
+                <img class="cart-item-image" src="${image}" alt="${escapeHtml(item.name || "Product")}">
                 <div>
                     <h3>${item.name}</h3>
                     <p>${money(item.price)} each</p>
@@ -3214,17 +3869,17 @@ function loadCart() {
         `;
     });
 
-    document.getElementById("total").innerText = "Total: " + money(total);
+    const pricing = getCartPricing(cart);
+    document.getElementById("total").innerText = "Total: " + money(pricing.total);
+    renderPriceBreakdown("cartPriceBreakdown", cart);
     updateOrderSummary();
-    resumePendingCheckout();
 }
 
 function removeItem(index) {
     const cart = getLocalCart();
     cart.splice(index, 1);
-    localStorage.setItem("cart", JSON.stringify(cart));
+    saveLocalCart(cart);
     loadCart();
-    updateCartCount();
 }
 
 function changeCartQty(index, change) {
@@ -3232,15 +3887,26 @@ function changeCartQty(index, change) {
     const item = cart[index];
     if (!item) return;
 
+    if (change > 0) {
+        const product = getProducts().find(candidate =>
+            (item.productId && productIdValue(candidate) === item.productId)
+            || String(candidate.name || "").toLowerCase() === String(item.name || "").toLowerCase()
+        );
+
+        if (product && Number(item.qty || 1) + change > productStock(product)) {
+            alert(`Only ${productStock(product)} available for ${product.name}.`);
+            return;
+        }
+    }
+
     item.qty = Number(item.qty || 1) + change;
 
     if (item.qty <= 0) {
         cart.splice(index, 1);
     }
 
-    localStorage.setItem("cart", JSON.stringify(cart));
+    saveLocalCart(cart);
     loadCart();
-    updateCartCount();
 }
 
 function nextOrderId() {
@@ -3250,9 +3916,11 @@ function nextOrderId() {
 }
 
 function toggleNav(button) {
-    const nav = button.closest("nav");
-    nav.classList.toggle("open");
-    button.innerText = nav.classList.contains("open") ? "Close" : "Menu";
+    const nav = button?.closest("nav") || document.querySelector("nav");
+    if (!nav) return;
+
+    const isOpen = nav.classList.toggle("open");
+    if (button) button.setAttribute("aria-expanded", isOpen ? "true" : "false");
 }
 
 function getCartTotal(cart) {
@@ -3262,15 +3930,162 @@ function getCartTotal(cart) {
     }, 0);
 }
 
+function normalizeCouponCode(value = "") {
+    return String(value || "").trim().toUpperCase();
+}
+
+function getAppliedCouponCode() {
+    return normalizeCouponCode(localStorage.getItem("couponCode") || "");
+}
+
+function getCouponDiscount(subtotal, code = getAppliedCouponCode()) {
+    const rule = couponRules[normalizeCouponCode(code)];
+
+    if (!rule || subtotal <= 0) {
+        return 0;
+    }
+
+    if (rule.type === "percent") {
+        return Math.min(Math.round(subtotal * rule.value / 100), subtotal);
+    }
+
+    return Math.min(rule.value, subtotal);
+}
+
+function getShippingCharge(amountAfterDiscount) {
+    return amountAfterDiscount > 0 && amountAfterDiscount < 999 ? 99 : 0;
+}
+
+function getCartPricing(cart = getLocalCart()) {
+    const subtotal = getCartTotal(cart);
+    const couponCode = getAppliedCouponCode();
+    const discount = getCouponDiscount(subtotal, couponCode);
+    const discountedSubtotal = Math.max(subtotal - discount, 0);
+    const shipping = getShippingCharge(discountedSubtotal);
+    const total = discountedSubtotal + shipping;
+    const hasCoupon = Boolean(couponCode && couponRules[couponCode] && discount > 0);
+
+    return {
+        subtotal,
+        couponCode: hasCoupon ? couponCode : "",
+        discount,
+        shipping,
+        total,
+        offer: hasCoupon ? `${couponCode} (-${money(discount)})` : "No offer"
+    };
+}
+
+function renderPriceBreakdown(targetId, cart = getLocalCart()) {
+    const target = document.getElementById(targetId);
+    if (!target) return;
+
+    const pricing = getCartPricing(cart);
+    target.innerHTML = `
+        <p><span>Subtotal</span><b>${money(pricing.subtotal)}</b></p>
+        <p><span>Discount</span><b>-${money(pricing.discount)}</b></p>
+        <p><span>Shipping</span><b>${pricing.shipping ? money(pricing.shipping) : "Free"}</b></p>
+        <hr>
+        <p class="grand-total"><span>Total</span><b>${money(pricing.total)}</b></p>
+    `;
+}
+
+function applyCoupon() {
+    const field = document.getElementById("couponCode");
+    const status = document.getElementById("couponStatus");
+    const code = normalizeCouponCode(field?.value || "");
+    const cart = getLocalCart();
+
+    if (!code) {
+        localStorage.removeItem("couponCode");
+        localStorage.setItem("offer", "No offer");
+        if (status) status.innerText = "Coupon cleared.";
+    } else if (!couponRules[code]) {
+        localStorage.removeItem("couponCode");
+        localStorage.setItem("offer", "No offer");
+        if (status) status.innerText = "Invalid coupon code.";
+    } else {
+        localStorage.setItem("couponCode", code);
+        localStorage.setItem("offer", getCartPricing(cart).offer);
+        if (status) status.innerText = `${couponRules[code].label} applied.`;
+    }
+
+    updateOrderSummary();
+    renderPriceBreakdown("cartPriceBreakdown", cart);
+    renderPriceBreakdown("checkoutPriceBreakdown", cart);
+
+    if (document.getElementById("cartItems")) {
+        loadCart();
+    }
+}
+
+function clearCoupon() {
+    const field = document.getElementById("couponCode");
+    localStorage.removeItem("couponCode");
+    localStorage.setItem("offer", "No offer");
+    if (field) field.value = "";
+    updateOrderSummary();
+    renderPriceBreakdown("cartPriceBreakdown");
+    renderPriceBreakdown("checkoutPriceBreakdown");
+    if (document.getElementById("cartItems")) loadCart();
+}
+
+async function validateCartStock(cart) {
+    const products = await getProductsData();
+
+    for (const item of cart) {
+        const product = products.find(candidate =>
+            (item.productId && productIdValue(candidate) === item.productId)
+            || String(candidate.name || "").toLowerCase() === String(item.name || "").toLowerCase()
+        );
+
+        if (!product) {
+            continue;
+        }
+
+        const qty = Number(item.qty || 1);
+        const stock = productStock(product);
+
+        if (stock < qty) {
+            return `${product.name} has only ${stock} left in stock.`;
+        }
+    }
+
+    return "";
+}
+
+function reduceLocalProductStock(cart) {
+    const products = getProducts();
+    let changed = false;
+
+    cart.forEach(item => {
+        const product = products.find(candidate =>
+            (item.productId && productIdValue(candidate) === item.productId)
+            || String(candidate.name || "").toLowerCase() === String(item.name || "").toLowerCase()
+        );
+
+        if (!product) return;
+
+        product.stock = Math.max(productStock(product) - Number(item.qty || 1), 0);
+        changed = true;
+    });
+
+    if (changed) {
+        saveProducts(products);
+    }
+}
+
 function updateOrderSummary() {
     const summary = document.getElementById("orderSummary");
     if (!summary) return;
 
     const cart = getLocalCart();
-    const offer = localStorage.getItem("offer") || "No offer";
+    const pricing = getCartPricing(cart);
+    const couponField = document.getElementById("couponCode");
+    if (couponField && couponField.value.trim() === "") couponField.value = pricing.couponCode;
 
     if (cart.length === 0) {
         summary.innerHTML = "<p>Add products to see your checkout summary.</p>";
+        renderPriceBreakdown("checkoutPriceBreakdown", cart);
         return;
     }
 
@@ -3295,16 +4110,21 @@ function updateOrderSummary() {
         ${items}
         ${orderCustomizationHtml}
         <hr>
-        <p><b>Total:</b> ${money(getCartTotal(cart))}</p>
-        <p><b>Offer:</b> ${offer}</p>
+        <p><b>Subtotal:</b> ${money(pricing.subtotal)}</p>
+        <p><b>Discount:</b> ${money(pricing.discount)}</p>
+        <p><b>Shipping:</b> ${pricing.shipping ? money(pricing.shipping) : "Free"}</p>
+        <p><b>Total:</b> ${money(pricing.total)}</p>
+        <p><b>Offer:</b> ${pricing.offer}</p>
     `;
+    renderPriceBreakdown("checkoutPriceBreakdown", cart);
 }
 
 function getCheckoutDetails() {
     const savedUser = localStorage.getItem("loggedInUser");
     const flatNo = getFieldValue("flatNo");
     const areaStreet = getFieldValue("areaStreet");
-    const address = [flatNo, areaStreet].filter(Boolean).join(", ");
+    const city = getFieldValue("city") || getFieldValue("district");
+    const address = [flatNo, areaStreet, city].filter(Boolean).join(", ");
 
     return {
         name: getFieldValue("userName") || savedUser || "",
@@ -3315,8 +4135,10 @@ function getCheckoutDetails() {
         address,
         state: getFieldValue("state"),
         district: getFieldValue("district"),
+        city,
         buildingStreet: areaStreet,
         pincode: getFieldValue("pincode"),
+        paymentMethod: getFieldValue("paymentMethod") || "razorpay",
         customizationName: getFieldValue("customizationName"),
         customizationColor: getFieldValue("customizationColor"),
         customizationPhotoName: orderPhotoStorage.checkout?.name || "",
@@ -3333,7 +4155,13 @@ function saveCheckoutDetails(details) {
 function restoreCheckoutDetails() {
     const savedDetails = sessionStorage.getItem("pendingCheckoutDetails");
     initLocationDropdowns();
-    if (!savedDetails) return;
+    if (!savedDetails) {
+        const savedAddresses = getSavedAddresses();
+        if (savedAddresses.length > 0) {
+            fillCheckoutFields(savedAddresses[0]);
+        }
+        return;
+    }
 
     try {
         const details = JSON.parse(savedDetails);
@@ -3345,7 +4173,9 @@ function restoreCheckoutDetails() {
             addressType: details.addressType || "Home",
             state: details.state,
             district: details.district,
+            city: details.city || details.district || "",
             pincode: details.pincode,
+            paymentMethod: details.paymentMethod || "razorpay",
             customizationName: details.customizationName || "",
             customizationColor: details.customizationColor || "",
             customization: details.customization === "None" ? "" : details.customization,
@@ -3358,13 +4188,135 @@ function restoreCheckoutDetails() {
             : null;
         renderPhotoPreview("checkoutPhotoPreview", orderPhotoStorage.checkout);
 
-        Object.entries(fields).forEach(([id, value]) => {
-            const field = document.getElementById(id);
-            if (field && value) field.value = value;
-        });
+        fillCheckoutFields(fields);
     } catch (error) {
         sessionStorage.removeItem("pendingCheckoutDetails");
     }
+}
+
+function addressStorageKey() {
+    return "smartOrnamentsAddresses:" + getCustomerKey();
+}
+
+function getSavedAddresses() {
+    try {
+        const addresses = JSON.parse(localStorage.getItem(addressStorageKey()) || "[]");
+        return Array.isArray(addresses) ? addresses : [];
+    } catch (error) {
+        localStorage.removeItem(addressStorageKey());
+        return [];
+    }
+}
+
+function saveCustomerAddress(details) {
+    const address = {
+        name: details.name,
+        phone: details.phone,
+        flatNo: details.flatNo,
+        areaStreet: details.areaStreet,
+        addressType: details.addressType,
+        state: details.state,
+        district: details.district,
+        city: details.city,
+        pincode: details.pincode
+    };
+    const key = [
+        address.phone,
+        address.flatNo,
+        address.areaStreet,
+        address.city,
+        address.pincode
+    ].map(value => String(value || "").toLowerCase()).join("|");
+    const addresses = getSavedAddresses().filter(item => {
+        const itemKey = [
+            item.phone,
+            item.flatNo,
+            item.areaStreet,
+            item.city,
+            item.pincode
+        ].map(value => String(value || "").toLowerCase()).join("|");
+
+        return itemKey !== key;
+    });
+
+    addresses.unshift(address);
+    localStorage.setItem(addressStorageKey(), JSON.stringify(addresses.slice(0, 4)));
+}
+
+function fillCheckoutFields(details = {}) {
+    if (details.state) initLocationDropdowns(details.state || "", details.district || "");
+
+    Object.entries(details).forEach(([id, value]) => {
+        const field = document.getElementById(id);
+        if (field && value !== undefined && value !== null) field.value = value;
+    });
+
+    updateOrderSummary();
+}
+
+function renderSavedAddresses() {
+    const container = document.getElementById("savedAddressList");
+    if (!container) return;
+
+    const addresses = getSavedAddresses();
+    if (addresses.length === 0) {
+        container.innerHTML = "<p>No saved addresses yet.</p>";
+        return;
+    }
+
+    container.innerHTML = addresses.map((address, index) => `
+        <button type="button" class="saved-address" onclick="useSavedAddress(${index})">
+            <b>${escapeHtml(address.addressType || "Address")}</b>
+            <span>${escapeHtml([address.flatNo, address.areaStreet, address.city, address.pincode].filter(Boolean).join(", "))}</span>
+        </button>
+    `).join("");
+}
+
+function useSavedAddress(index) {
+    const address = getSavedAddresses()[index];
+    if (!address) return;
+
+    fillCheckoutFields(address);
+}
+
+function renderCheckoutItems() {
+    const container = document.getElementById("checkoutItems");
+    if (!container) return;
+
+    const cart = getLocalCart();
+    if (cart.length === 0) {
+        container.innerHTML = `
+            <div class="empty-panel">
+                <h3>Your cart is empty.</h3>
+                <p>Add products before checkout.</p>
+                <a href="products.html" class="btn primary-btn">Continue Shopping</a>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = cart.map(item => {
+        const qty = Number(item.qty || 1);
+        return `
+            <div class="checkout-item">
+                <img src="${item.image || "images/Logo.png"}" alt="${escapeHtml(item.name || "Product")}">
+                <div>
+                    <b>${escapeHtml(item.name || "Product")}</b>
+                    <span>${qty} x ${money(item.price)}</span>
+                </div>
+                <strong>${money(Number(item.price || 0) * qty)}</strong>
+            </div>
+        `;
+    }).join("");
+}
+
+function initCheckoutPage() {
+    initLocationDropdowns();
+    restoreCheckoutDetails();
+    renderSavedAddresses();
+    renderCheckoutItems();
+    updateOrderSummary();
+    resumePendingCheckout();
 }
 
 function resumePendingCheckout() {
@@ -3372,13 +4324,13 @@ function resumePendingCheckout() {
 
     sessionStorage.removeItem("pendingCheckout");
     const checkoutMsg = document.getElementById("checkoutMsg");
-    if (checkoutMsg) checkoutMsg.innerText = "Login successful. Opening WhatsApp checkout...";
+    if (checkoutMsg) checkoutMsg.innerText = "Login successful. Resuming checkout...";
     setTimeout(() => checkout(), 400);
 }
 
 function validateCheckout(details) {
-    if (!details.name || !details.phone || !details.flatNo || !details.areaStreet || !details.addressType || !details.state || !details.district || !details.pincode) {
-        return "Name, phone number, flat/house no, area/street, address type, state, district, and pincode are required.";
+    if (!details.name || !details.phone || !details.flatNo || !details.areaStreet || !details.addressType || !details.state || !details.city || !details.pincode || !details.paymentMethod) {
+        return "Name, phone number, address, city, state, pincode, and payment method are required.";
     }
 
     if (details.phone.replace(/\D/g, "").length < 10) {
@@ -3394,9 +4346,10 @@ function validateCheckout(details) {
 
 function updateCartCount() {
     const cart = getLocalCart();
-    const el = document.getElementById("cartCount");
     const totalQty = cart.reduce((sum, item) => sum + Number(item.qty || 1), 0);
-    if (el) el.innerText = totalQty;
+    document.querySelectorAll("#cartCount, [data-cart-count]").forEach(el => {
+        el.innerText = totalQty;
+    });
 }
 async function checkout() {
     const cart = getLocalCart();
@@ -3415,35 +4368,76 @@ async function checkout() {
         return;
     }
 
-    if (!localStorage.getItem("loggedInUser")) {
-        saveCheckoutDetails(details);
-        sessionStorage.setItem("pendingCheckout", "true");
-        requireLogin("cart.html");
+    const stockError = await validateCartStock(cart);
+    if (stockError) {
+        checkoutMsg.innerText = stockError;
         return;
     }
 
-    const offer = localStorage.getItem("offer") || "No offer";
+    if (!localStorage.getItem("loggedInUser")) {
+        saveCheckoutDetails(details);
+        sessionStorage.setItem("pendingCheckout", "true");
+        requireLogin("checkout.html");
+        return;
+    }
 
-    let total = 0;
+    const pricing = getCartPricing(cart);
+    const paymentMethod = details.paymentMethod || "razorpay";
+    const message = buildCheckoutMessage(cart, details, pricing);
+
+    const orderData = {
+        items: cart,
+        subtotal: pricing.subtotal,
+        discount: pricing.discount,
+        shipping: pricing.shipping,
+        total: pricing.total,
+        couponCode: pricing.couponCode,
+        customer: details,
+        offer: pricing.offer,
+        paymentMethod,
+        paymentStatus: "Pending",
+        status: "Processing"
+    };
+
+    if (paymentMethod === "razorpay") {
+        await startRazorpayCheckout(orderData, message, checkoutMsg);
+        return;
+    }
+
+    await placeOrder(orderData, message, checkoutMsg, {
+        openWhatsApp: paymentMethod === "whatsapp"
+    });
+}
+
+function paymentMethodLabel(value) {
+    const labels = {
+        razorpay: "Online Payment",
+        whatsapp: "WhatsApp Confirmation",
+        cod: "Cash on Delivery"
+    };
+
+    return labels[value] || value || "Not selected";
+}
+
+function buildCheckoutMessage(cart, details, pricing) {
     let message = "Hi, I want to order from SmartOrnaments.\n\n";
 
-    message += `Customer Details\n`;
-    message += `Name: ${details.name}\nPhone: ${details.phone}\nAddress Type: ${details.addressType}\n`;
+    message += "Customer Details\n";
+    message += `Name: ${details.name}\nPhone: ${details.phone}\nPayment: ${paymentMethodLabel(details.paymentMethod)}\n`;
+    message += `Address Type: ${details.addressType}\n`;
     message += `Flat / House No: ${details.flatNo}\nArea / Street: ${details.areaStreet}\n`;
-    message += `State: ${details.state}\nDistrict: ${details.district}\n`;
+    message += `City: ${details.city}\nState: ${details.state}\nDistrict: ${details.district || details.city}\n`;
     message += `Pincode: ${details.pincode}\n`;
     message += `Customization Name: ${details.customizationName || "Not provided"}\n`;
     message += `Customization Color: ${details.customizationColor || "Not selected"}\n`;
     message += `Customization Photo: ${details.customizationPhotoName || "Not uploaded"}\n`;
     message += `Customization Note: ${details.customization}\nDelivery Note: ${details.deliveryNote}\n\n`;
-
-    message += `Items\n`;
+    message += "Items\n";
 
     cart.forEach((item, i) => {
         const qty = Number(item.qty || 1);
-        const subtotal = item.price * qty;
+        const subtotal = Number(item.price || 0) * qty;
         const itemCustomization = cleanCustomizationData(item.customization);
-        total += subtotal;
 
         message += `${i + 1}. ${item.name} x ${qty} - ${money(subtotal)}\n`;
         if (hasCustomizationData(itemCustomization)) {
@@ -3453,22 +4447,96 @@ async function checkout() {
         }
     });
 
-    message += `\nOffer: ${offer}`;
-    message += `\nTotal: ${money(total)}`;
+    message += `\nSubtotal: ${money(pricing.subtotal)}`;
+    message += `\nDiscount: ${money(pricing.discount)}`;
+    message += `\nShipping: ${pricing.shipping ? money(pricing.shipping) : "Free"}`;
+    message += `\nOffer: ${pricing.offer}`;
+    message += `\nTotal: ${money(pricing.total)}`;
 
-    const orderData = {
-        items: cart,
-        total,
-        customer: details,
-        offer
-    };
+    return message;
+}
 
+async function startRazorpayCheckout(orderData, baseMessage, checkoutMsg) {
+    if (!window.Razorpay) {
+        if (checkoutMsg) checkoutMsg.innerText = "Razorpay checkout script is not loaded.";
+        return;
+    }
+
+    try {
+        if (checkoutMsg) checkoutMsg.innerText = "Opening secure payment...";
+        const paymentOrder = await apiRequest("/api/payments/create-order", {
+            method: "POST",
+            body: JSON.stringify({ amount: orderData.total })
+        });
+        const razorpayOrder = paymentOrder.order || paymentOrder;
+        const key = paymentOrder.key || paymentOrder.key_id;
+
+        if (!key || !razorpayOrder.id) {
+            throw new Error("Razorpay is not configured");
+        }
+
+        const options = {
+            key,
+            amount: razorpayOrder.amount || orderData.total * 100,
+            currency: razorpayOrder.currency || "INR",
+            name: "SmartOrnaments",
+            description: "Order Payment",
+            order_id: razorpayOrder.id,
+            prefill: {
+                name: orderData.customer.name,
+                contact: orderData.customer.phone
+            },
+            handler: async function(response) {
+                try {
+                    if (checkoutMsg) checkoutMsg.innerText = "Payment successful. Saving order...";
+                    let verified = false;
+
+                    try {
+                        const verifyData = await apiRequest("/api/payments/verify", {
+                            method: "POST",
+                            body: JSON.stringify(response)
+                        });
+                        verified = Boolean(verifyData.verified);
+                    } catch (error) {
+                        console.warn(error.message);
+                    }
+
+                    await placeOrder({
+                        ...orderData,
+                        paymentStatus: verified ? "Paid" : "Paid",
+                        paymentProvider: "Razorpay",
+                        paymentId: response.razorpay_payment_id,
+                        razorpayOrderId: response.razorpay_order_id,
+                        razorpaySignature: response.razorpay_signature,
+                        paymentVerified: verified
+                    }, baseMessage, checkoutMsg, { openWhatsApp: false });
+                } catch (error) {
+                    if (checkoutMsg) checkoutMsg.innerText = "Payment completed, but order save failed: " + error.message;
+                }
+            },
+            modal: {
+                ondismiss: function() {
+                    if (checkoutMsg) checkoutMsg.innerText = "Payment cancelled.";
+                }
+            },
+            theme: {
+                color: "#ff4d6d"
+            }
+        };
+
+        new window.Razorpay(options).open();
+    } catch (error) {
+        if (checkoutMsg) checkoutMsg.innerText = error.message;
+    }
+}
+
+async function placeOrder(orderData, message, checkoutMsg, options = {}) {
     if (useBackend) {
         try {
             if (checkoutMsg) checkoutMsg.innerText = "Saving order to database...";
             const order = await saveOrderToPhp(orderData);
             saveLocalOrderSnapshot(order);
-            finishCheckout(order, message);
+            finishCheckout(order, message, orderData, options);
             return;
         } catch (error) {
             if (!isApiUnavailableError(error)) {
@@ -3487,7 +4555,7 @@ async function checkout() {
                 method: "POST",
                 body: JSON.stringify(orderData)
             });
-            finishCheckout(data.order, message);
+            finishCheckout(data.order, message, orderData, options);
             return;
         } catch (error) {
             if (!isApiUnavailableError(error)) {
@@ -3500,13 +4568,20 @@ async function checkout() {
     }
 
     const order = createLocalOrder(orderData);
-    finishCheckout(order, message);
+    finishCheckout(order, message, orderData, options);
 }
-function finishCheckout(order, baseMessage) {
-    const message = `${baseMessage}\nOrder ID: ${order.id}\nTotal: ${money(order.total)}\nOffer: ${order.offer || "No offer"}`;
+
+function finishCheckout(order, baseMessage, orderData = {}, options = {}) {
+    const message = `${baseMessage}\nOrder ID: ${order.id}\nTotal: ${money(order.total)}\nOffer: ${order.offer || "No offer"}\nPayment Status: ${order.paymentStatus || orderData.paymentStatus || "Pending"}`;
     localStorage.setItem("lastOrderId", order.id);
-    window.open(`https://wa.me/919344586609?text=${encodeURIComponent(message)}`, "_blank");
-    localStorage.removeItem("cart");
+    localStorage.setItem("lastOrderPaymentStatus", order.paymentStatus || orderData.paymentStatus || "Pending");
+    if (options.openWhatsApp) {
+        window.open(`https://wa.me/919344586609?text=${encodeURIComponent(message)}`, "_blank");
+    }
+    if (orderData.customer) saveCustomerAddress(orderData.customer);
+    reduceLocalProductStock(getLocalCart());
+    saveLocalCart([]);
+    clearCoupon();
     sessionStorage.removeItem("pendingCheckout");
     sessionStorage.removeItem("pendingCheckoutDetails");
     orderPhotoStorage.checkout = null;
@@ -3530,6 +4605,14 @@ async function loadOrderSuccess() {
     document.getElementById("successOrderId").innerText = order.id || "Order";
     document.getElementById("successTotal").innerText = "Total: " + money(order.total);
     document.getElementById("successOffer").innerText = "Offer: " + (order.offer || "No offer");
+    const payment = document.getElementById("successPayment");
+    const delivery = document.getElementById("successDelivery");
+    const title = document.getElementById("successTitle");
+    const paymentStatus = order.paymentStatus || localStorage.getItem("lastOrderPaymentStatus") || "Pending";
+
+    if (title) title.innerText = paymentStatus === "Paid" ? "Payment Successful" : "Order Placed";
+    if (payment) payment.innerText = "Payment: " + paymentStatus;
+    if (delivery) delivery.innerText = "Estimated delivery: 5-7 business days";
     if (status) status.innerText = "Status: " + normalizeOrderStatus(order.status);
 }
 
@@ -3596,6 +4679,7 @@ async function loadOrders() {
                 <hr>
                 <p><b>Total:</b> ${money(order.total)}</p>
                 <p><b>Offer:</b> ${order.offer || "No offer"}</p>
+                <p><b>Payment:</b> ${paymentMethodLabel(order.paymentMethod)} - ${order.paymentStatus || "Pending"}</p>
                 ${customizationDetailsHtml({
                     customName: order.customer?.customizationName,
                     color: order.customer?.customizationColor,
@@ -3614,28 +4698,29 @@ async function loadOrders() {
 
 function getOrderStatusClass(status) {
     status = normalizeOrderStatus(status);
-    if (status === "Making") return "is-making";
+    if (status === "Processing") return "is-processing";
+    if (status === "Packed") return "is-packed";
     if (status === "Shipped") return "is-shipped";
     if (status === "Delivered") return "is-delivered";
-    return "is-pending";
+    return "is-processing";
 }
 
 function buildOrderTrackingHtml(order) {
     const status = normalizeOrderStatus(order.status);
     const activeIndex = orderStatuses.indexOf(status);
     const steps = [
-        { key: "Pending", label: "Pending", time: order.placedAt || order.date },
-        { key: "Making", label: "Making", time: order.makingAt || order.confirmedAt },
+        { key: "Processing", label: "Processing", time: order.processingAt || order.placedAt || order.date },
+        { key: "Packed", label: "Packed", time: order.packedAt || order.makingAt || order.confirmedAt },
         { key: "Shipped", label: "Shipped", time: order.shippedAt },
         { key: "Delivered", label: "Delivered", time: order.deliveredAt }
     ].map((step, index) => ({
         ...step,
         done: index <= activeIndex
     }));
-    const isActive = status !== "Pending";
+    const isActive = status !== "Processing";
     const note = isActive
         ? `Tracking ID: ${order.id || "Not provided"}`
-        : "Tracking starts after the admin updates your order.";
+        : "Tracking starts when your order is packed.";
 
     return `
         <div class="tracking-box ${isActive ? "is-active" : "is-waiting"}">
@@ -3659,7 +4744,7 @@ function reorder(index) {
     const orders = getLocalOrders();
     if (!orders[index]) return;
 
-    localStorage.setItem("cart", JSON.stringify(orders[index].items));
+    saveLocalCart(orders[index].items);
     alert("Items added to cart");
     window.location.href = "cart.html";
 }
@@ -3727,7 +4812,7 @@ async function updateStatus(index) {
 
     const current = normalizeOrderStatus(orders[index].status);
     const next = nextOrderStatus(current);
-    const shouldSendConfirmation = current === "Pending" && next === "Making";
+    const shouldSendConfirmation = current === "Processing" && next === "Packed";
     const confirmationWindow = shouldSendConfirmation && getWhatsAppPhoneNumber(orders[index].customer?.phone)
         ? window.open("", "_blank")
         : null;
@@ -3877,7 +4962,7 @@ async function loadAdminOrders() {
         const index = orders.indexOf(order);
         let itemsHTML = "";
         const status = normalizeOrderStatus(order.status);
-        const confirmationAction = status !== "Pending"
+        const confirmationAction = status !== "Processing"
             ? `<button onclick="openOrderConfirmationWhatsAppByIndex(${index})">WhatsApp Update</button>`
             : "";
 
@@ -3910,8 +4995,9 @@ async function loadAdminOrders() {
                 <hr>
                 <p><b>Total:</b> ${money(order.total)}</p>
                 <p><b>Offer:</b> ${order.offer || "No offer"}</p>
+                <p><b>Payment:</b> ${paymentMethodLabel(order.paymentMethod)} - ${order.paymentStatus || "Pending"}</p>
                 <p class="status ${getOrderStatusClass(status)}">Status: ${status}</p>
-                ${status === "Making" ? `<p><b>Making:</b> ${order.makingAt || order.confirmedAt || "Just now"}</p>` : ""}
+                ${status === "Packed" ? `<p><b>Packed:</b> ${order.packedAt || order.makingAt || order.confirmedAt || "Just now"}</p>` : ""}
                 ${status === "Shipped" ? `<p><b>Shipped:</b> ${order.shippedAt || "Just now"}</p>` : ""}
                 ${status === "Delivered" ? `<p><b>Delivered:</b> ${order.deliveredAt || "Completed"}</p>` : ""}
                 <small>${order.date}</small>
@@ -3937,10 +5023,8 @@ async function logout(event) {
     }
 
     localStorage.removeItem("authToken");
+    localStorage.removeItem("token");
     localStorage.removeItem("loggedInUser");
     localStorage.removeItem("userRole");
     window.location.href = "login.html";
-}
-function toggleNav() {
-    document.querySelector("nav").classList.toggle("open");
 }

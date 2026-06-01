@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout - SmartOrnaments</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+</head>
+
+<body onload="showUser(); updateCartCount(); initCheckoutPage();">
+<nav>
+    <h2 class="brand">
+        <img src="images/Logo.png" alt="SmartOrnaments logo" class="brand-logo">
+        <span class="brand-name">SmartOrnaments</span>
+    </h2>
+    <button class="nav-toggle" onclick="toggleNav(this)" aria-label="Toggle menu">Menu</button>
+
+    <ul>
+        <li><a href="index.html">Home</a></li>
+        <li><a href="products.html">Products</a></li>
+        <li><a href="cart.html">Cart <span id="cartCount">0</span></a></li>
+        <li><a href="orders.html">Orders</a></li>
+    </ul>
+
+    <div id="userDisplay"></div>
+</nav>
+
+<main class="checkout-page">
+    <section class="checkout-layout">
+        <div class="checkout-review">
+            <span class="eyebrow">Checkout</span>
+            <h1>Review Your Order</h1>
+            <div id="checkoutItems" class="checkout-items"></div>
+
+            <div class="coupon-row">
+                <input type="text" id="couponCode" placeholder="Coupon code">
+                <button type="button" onclick="applyCoupon()">Apply</button>
+                <button type="button" onclick="clearCoupon()">Clear</button>
+            </div>
+            <p id="couponStatus" class="form-message"></p>
+            <div id="checkoutPriceBreakdown" class="price-breakdown"></div>
+        </div>
+
+        <form class="checkout-box checkout-form" onsubmit="event.preventDefault(); checkout();">
+            <h2>Delivery Details</h2>
+
+            <div id="savedAddressList" class="saved-address-list"></div>
+
+            <input type="text" id="userName" placeholder="Full name" oninput="updateOrderSummary()">
+            <input type="tel" id="phone" placeholder="Phone number" oninput="updateOrderSummary()">
+            <input type="text" id="flatNo" placeholder="Flat / house no" oninput="updateOrderSummary()">
+            <input type="text" id="areaStreet" placeholder="Area / street" oninput="updateOrderSummary()">
+            <input type="text" id="city" placeholder="City" oninput="updateOrderSummary()">
+
+            <select id="addressType" aria-label="Address type" onchange="updateOrderSummary()">
+                <option value="Home">Home</option>
+                <option value="Work">Work</option>
+            </select>
+
+            <select id="state" aria-label="State" onchange="handleStateChange()">
+                <option value="">Select state</option>
+            </select>
+
+            <select id="district" aria-label="District" onchange="updateOrderSummary()" disabled>
+                <option value="">Select state first</option>
+            </select>
+
+            <input type="text" id="pincode" placeholder="Pincode" inputmode="numeric" oninput="updateOrderSummary()">
+
+            <select id="paymentMethod" aria-label="Payment method" onchange="updateOrderSummary()">
+                <option value="razorpay">Online Payment (Razorpay)</option>
+                <option value="whatsapp">WhatsApp Confirmation</option>
+                <option value="cod">Cash on Delivery</option>
+            </select>
+
+            <h3>Customization</h3>
+            <input type="text" id="customizationName" placeholder="Name for customization" oninput="updateOrderSummary()">
+            <select id="customizationColor" aria-label="Customization color" onchange="updateOrderSummary()">
+                <option value="">Select customization color</option>
+                <option value="Pink">Pink</option>
+                <option value="Red">Red</option>
+                <option value="Gold">Gold</option>
+                <option value="Silver">Silver</option>
+                <option value="White">White</option>
+                <option value="Black">Black</option>
+                <option value="Blue">Blue</option>
+            </select>
+            <input type="file" id="customizationPhoto" accept="image/*" onchange="handleCheckoutPhoto(this)">
+            <div id="checkoutPhotoPreview" class="photo-preview"></div>
+            <textarea id="customization" placeholder="Extra customization message, dates, or gift note" oninput="updateOrderSummary()"></textarea>
+            <textarea id="deliveryNote" placeholder="Delivery note, landmark, or preferred time" oninput="updateOrderSummary()"></textarea>
+
+            <div class="order-summary">
+                <h3>Order Summary</h3>
+                <div id="orderSummary"></div>
+            </div>
+
+            <p id="checkoutMsg" class="form-message"></p>
+            <button type="submit" class="checkout-btn">Place Order</button>
+        </form>
+    </section>
+</main>
+
+<script src="js/script.js"></script>
+</body>
+</html>

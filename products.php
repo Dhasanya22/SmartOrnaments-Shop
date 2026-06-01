@@ -5,6 +5,17 @@ header("Content-Type: application/json; charset=utf-8");
 $adminEmail = "smartornaments.shop@gmail.com";
 $legacyAdminUsername = "admin";
 
+$categoryLabels = [
+    "bracelet" => "Bracelets",
+    "resin-work" => "Frames",
+    "name-board-fridge-magnet" => "Name Boards",
+    "keychain" => "Keychains",
+    "hair-accessories" => "Hair Accessories",
+    "thread-work-bangle-earrings" => "Bangles & Earrings",
+    "led-gifts" => "LED Gifts",
+    "couple-gifts" => "Couple Gifts"
+];
+
 function imageName($image) {
     $name = pathinfo($image, PATHINFO_FILENAME);
     return trim(preg_replace("/\s+/", " ", $name));
@@ -127,7 +138,10 @@ foreach ($productSeedGroups as $group) {
             "image" => $image,
             "images" => [$image],
             "type" => $group["type"],
+            "category" => $categoryLabels[$group["type"]] ?? "Product",
             "description" => $group["description"] . " Choose the " . $name . " design and personalize it your way.",
+            "stock" => 20,
+            "rating" => 4.6 + (($index % 4) / 10),
             "featured" => $index === 0,
             "occasions" => $group["occasions"]
         ];
@@ -199,7 +213,10 @@ function ensureProductsTable($conn, $defaultProducts) {
             image VARCHAR(255) NOT NULL,
             images TEXT,
             type VARCHAR(80) NOT NULL DEFAULT 'bracelet',
+            category VARCHAR(100) NOT NULL DEFAULT 'Bracelets',
             description TEXT,
+            stock INT NOT NULL DEFAULT 0,
+            rating DECIMAL(2,1) NOT NULL DEFAULT 0.0,
             featured TINYINT(1) NOT NULL DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -207,6 +224,9 @@ function ensureProductsTable($conn, $defaultProducts) {
     ");
 
     ensureProductsColumn($conn, "images", "TEXT AFTER image");
+    ensureProductsColumn($conn, "category", "VARCHAR(100) NOT NULL DEFAULT 'Bracelets' AFTER type");
+    ensureProductsColumn($conn, "stock", "INT NOT NULL DEFAULT 20 AFTER description");
+    ensureProductsColumn($conn, "rating", "DECIMAL(2,1) NOT NULL DEFAULT 0.0 AFTER stock");
 
     $result = $conn->query("SELECT COUNT(*) AS total FROM products");
     $row = $result->fetch_assoc();
@@ -216,22 +236,27 @@ function ensureProductsTable($conn, $defaultProducts) {
     }
 
     $stmt = $conn->prepare("
-        INSERT INTO products (id, name, price, image, images, type, description, featured)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO products (id, name, price, image, images, type, category, description, stock, rating, featured)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
 
     foreach ($defaultProducts as $product) {
         $featured = !empty($product["featured"]) ? 1 : 0;
         $imagesJson = json_encode(cleanImages($product), JSON_UNESCAPED_UNICODE);
+        $rating = (float)($product["rating"] ?? 0);
+        $stock = (int)($product["stock"] ?? 20);
         $stmt->bind_param(
-            "ssissssi",
+            "ssisssssidi",
             $product["id"],
             $product["name"],
             $product["price"],
             $product["image"],
             $imagesJson,
             $product["type"],
+            $product["category"],
             $product["description"],
+            $stock,
+            $rating,
             $featured
         );
         $stmt->execute();
@@ -307,14 +332,17 @@ function productFromRow($row) {
         "image" => $images[0] ?? $row["image"],
         "images" => $images,
         "type" => $row["type"],
+        "category" => $row["category"] ?? "",
         "description" => $row["description"] ?? "",
+        "stock" => (int)($row["stock"] ?? 0),
+        "rating" => (float)($row["rating"] ?? 0),
         "featured" => (bool)$row["featured"]
     ];
 }
 
 function getProducts($conn) {
     $products = [];
-    $result = $conn->query("SELECT id, name, price, image, images, type, description, featured FROM products ORDER BY created_at ASC, name ASC");
+    $result = $conn->query("SELECT id, name, price, image, images, type, category, description, stock, rating, featured FROM products ORDER BY created_at ASC, name ASC");
 
     while ($row = $result->fetch_assoc()) {
         $products[] = productFromRow($row);
@@ -341,7 +369,10 @@ function cleanProductData($data, $id = "") {
     $image = $images[0] ?? "";
     $imagesJson = json_encode($images, JSON_UNESCAPED_UNICODE);
     $type = trim($data["type"] ?? "bracelet");
+    $category = trim($data["category"] ?? "");
     $description = trim($data["description"] ?? "");
+    $stock = max(0, (int)($data["stock"] ?? 0));
+    $rating = min(5, max(0, (float)($data["rating"] ?? 0)));
     $featured = !empty($data["featured"]) ? 1 : 0;
     $productId = trim($id ?: ($data["id"] ?? ""));
 
@@ -361,7 +392,10 @@ function cleanProductData($data, $id = "") {
         "images" => $images,
         "imagesJson" => $imagesJson,
         "type" => $type === "" ? "bracelet" : $type,
+        "category" => $category === "" ? "Product" : $category,
         "description" => $description,
+        "stock" => $stock,
+        "rating" => $rating,
         "featured" => $featured
     ];
 }
@@ -393,18 +427,21 @@ try {
         requireAdmin();
         $product = cleanProductData(readJsonBody());
         $stmt = $conn->prepare("
-            INSERT INTO products (id, name, price, image, images, type, description, featured)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO products (id, name, price, image, images, type, category, description, stock, rating, featured)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         $stmt->bind_param(
-            "ssissssi",
+            "ssisssssidi",
             $product["id"],
             $product["name"],
             $product["price"],
             $product["image"],
             $product["imagesJson"],
             $product["type"],
+            $product["category"],
             $product["description"],
+            $product["stock"],
+            $product["rating"],
             $product["featured"]
         );
         $stmt->execute();
@@ -428,17 +465,20 @@ try {
         $product = cleanProductData(readJsonBody(), $id);
         $stmt = $conn->prepare("
             UPDATE products
-            SET name = ?, price = ?, image = ?, images = ?, type = ?, description = ?, featured = ?
+            SET name = ?, price = ?, image = ?, images = ?, type = ?, category = ?, description = ?, stock = ?, rating = ?, featured = ?
             WHERE id = ?
         ");
         $stmt->bind_param(
-            "sissssis",
+            "sisssssidis",
             $product["name"],
             $product["price"],
             $product["image"],
             $product["imagesJson"],
             $product["type"],
+            $product["category"],
             $product["description"],
+            $product["stock"],
+            $product["rating"],
             $product["featured"],
             $product["id"]
         );

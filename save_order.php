@@ -108,6 +108,84 @@ function addNotification($conn, $type, $title, $message, $sourceId = "") {
     $stmt->execute();
 }
 
+function tableExists($conn, $table) {
+    $stmt = $conn->prepare("
+        SELECT COUNT(*)
+        FROM INFORMATION_SCHEMA.TABLES
+        WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = ?
+    ");
+    $stmt->bind_param("s", $table);
+    $stmt->execute();
+    $stmt->bind_result($count);
+    $stmt->fetch();
+    $stmt->close();
+
+    return (int)$count > 0;
+}
+
+function ensureProductStockColumn($conn) {
+    if (!tableExists($conn, "products")) {
+        return false;
+    }
+
+    $stmt = $conn->prepare("
+        SELECT COUNT(*)
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = 'products'
+            AND COLUMN_NAME = 'stock'
+    ");
+    $stmt->execute();
+    $stmt->bind_result($count);
+    $stmt->fetch();
+    $stmt->close();
+
+    if ((int)$count === 0) {
+        $conn->query("ALTER TABLE products ADD COLUMN stock INT NOT NULL DEFAULT 20 AFTER description");
+    }
+
+    return true;
+}
+
+function reduceProductInventory($conn, $items) {
+    if (!ensureProductStockColumn($conn)) {
+        return "";
+    }
+
+    foreach ($items as $item) {
+        $productId = trim((string)($item["productId"] ?? ($item["id"] ?? "")));
+        $name = trim((string)($item["name"] ?? ""));
+        $qty = max(1, (int)($item["qty"] ?? 1));
+
+        if ($productId !== "") {
+            $stmt = $conn->prepare("SELECT id, name, stock FROM products WHERE id = ? LIMIT 1");
+            $stmt->bind_param("s", $productId);
+        } else {
+            $stmt = $conn->prepare("SELECT id, name, stock FROM products WHERE LOWER(name) = LOWER(?) LIMIT 1");
+            $stmt->bind_param("s", $name);
+        }
+
+        $stmt->execute();
+        $product = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        if (!$product) {
+            continue;
+        }
+
+        if ((int)$product["stock"] < $qty) {
+            return ($product["name"] ?: "Product") . " has only " . (int)$product["stock"] . " left in stock";
+        }
+
+        $update = $conn->prepare("UPDATE products SET stock = stock - ? WHERE id = ?");
+        $update->bind_param("is", $qty, $product["id"]);
+        $update->execute();
+    }
+
+    return "";
+}
+
 function cleanHeader($value) {
     return str_replace(["\r", "\n"], "", (string)$value);
 }
@@ -199,6 +277,13 @@ try {
     ensureOrdersColumn($conn, "delivered_at", "DATETIME NULL AFTER confirmed_at");
     ensureOrdersColumn($conn, "updated_at", "DATETIME NULL AFTER delivered_at");
     ensureNotificationsTable($conn);
+
+    $inventoryError = reduceProductInventory($conn, $items);
+    if ($inventoryError !== "") {
+        http_response_code(400);
+        echo json_encode(["success" => false, "error" => $inventoryError]);
+        exit;
+    }
 
     $itemsJson = json_encode($items, JSON_UNESCAPED_UNICODE);
 

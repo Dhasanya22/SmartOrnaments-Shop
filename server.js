@@ -32,6 +32,17 @@ function slugFromText(value) {
         .replace(/(^-|-$)/g, "");
 }
 
+const categoryLabels = {
+    bracelet: "Bracelets",
+    "resin-work": "Frames",
+    "name-board-fridge-magnet": "Name Boards",
+    keychain: "Keychains",
+    "hair-accessories": "Hair Accessories",
+    "thread-work-bangle-earrings": "Bangles & Earrings",
+    "led-gifts": "LED Gifts",
+    "couple-gifts": "Couple Gifts"
+};
+
 const productSeedGroups = [
     {
         type: "bracelet",
@@ -141,7 +152,10 @@ const defaultProducts = productSeedGroups.flatMap(group => group.images.map((ima
         image,
         images: [image],
         type: group.type,
+        category: categoryLabels[group.type] || "Product",
         description: `${group.description} Choose the ${name} design and personalize it your way.`,
+        stock: 20,
+        rating: Number((4.6 + (index % 4) / 10).toFixed(1)),
         featured: index === 0,
         occasions: group.occasions
     };
@@ -196,6 +210,12 @@ function readDb() {
 
     if (!Array.isArray(db.products)) {
         db.products = defaultProducts;
+        changed = true;
+    }
+
+    const normalizedProducts = db.products.map(product => normalizeProduct(product, product));
+    if (JSON.stringify(normalizedProducts) !== JSON.stringify(db.products)) {
+        db.products = normalizedProducts;
         changed = true;
     }
 
@@ -348,6 +368,83 @@ function cleanText(value) {
     return String(value || "").trim();
 }
 
+function clampNumber(value, fallback = 0, min = 0, max = Number.POSITIVE_INFINITY) {
+    const number = Number(value);
+
+    if (!Number.isFinite(number)) {
+        return fallback;
+    }
+
+    return Math.min(Math.max(number, min), max);
+}
+
+function normalizeProduct(product = {}, existing = {}) {
+    const rawImages = [
+        product.image,
+        ...(Array.isArray(product.images) ? product.images : [])
+    ].map(image => cleanText(image)).filter(Boolean);
+    const images = Array.from(new Set(rawImages)).slice(0, 10);
+    const type = cleanText(product.type || existing.type || "keychain");
+    const category = cleanText(product.category || existing.category || categoryLabels[type] || "Product");
+    const now = new Date().toISOString();
+
+    return {
+        id: cleanText(product.id || existing.id) || crypto.randomUUID(),
+        name: cleanText(product.name || existing.name),
+        price: clampNumber(product.price ?? existing.price, 0, 0),
+        image: images[0] || cleanText(existing.image),
+        images: images.length ? images : cleanText(existing.image) ? [cleanText(existing.image)] : [],
+        type,
+        category,
+        description: cleanText(product.description ?? existing.description),
+        stock: Math.floor(clampNumber(product.stock ?? existing.stock, 0, 0)),
+        rating: clampNumber(product.rating ?? existing.rating, 0, 0, 5),
+        featured: Boolean(product.featured ?? existing.featured),
+        occasions: Array.isArray(product.occasions) ? product.occasions : Array.isArray(existing.occasions) ? existing.occasions : [],
+        createdAt: existing.createdAt || product.createdAt || now,
+        updatedAt: existing.updatedAt || product.updatedAt || now
+    };
+}
+
+function normalizeOrderItem(item = {}) {
+    const qty = Math.max(Number(item.qty || 1), 1);
+
+    return {
+        productId: cleanText(item.productId || item.id),
+        name: cleanText(item.name),
+        price: clampNumber(item.price, 0, 0),
+        qty,
+        image: cleanText(item.image),
+        category: cleanText(item.category),
+        customization: item.customization || {}
+    };
+}
+
+function reduceProductInventory(products, items) {
+    for (const item of items) {
+        const product = products.find(candidate =>
+            (item.productId && candidate.id === item.productId)
+            || cleanText(candidate.name).toLowerCase() === cleanText(item.name).toLowerCase()
+        );
+
+        if (!product) {
+            continue;
+        }
+
+        const qty = Number(item.qty || 1);
+        const stock = Number(product.stock || 0);
+
+        if (stock < qty) {
+            return `${product.name} has only ${stock} left in stock`;
+        }
+
+        product.stock = stock - qty;
+        product.updatedAt = new Date().toISOString();
+    }
+
+    return "";
+}
+
 function addNotification(db, type, title, message, meta = {}) {
     const notification = {
         id: crypto.randomUUID(),
@@ -428,7 +525,11 @@ function normalizeContact(body) {
 
 function serveStatic(req, res) {
     const requestPath = decodeURIComponent(req.url.split("?")[0]);
-    const safePath = requestPath === "/" ? "/index.html" : requestPath;
+    const safePath = requestPath === "/"
+        ? "/index.html"
+        : /^\/products\/[^/]+$/i.test(requestPath)
+        ? "/product.html"
+        : requestPath;
     const segments = safePath.split("/").filter(Boolean);
     const filePath = path.normalize(path.join(ROOT, safePath));
 
@@ -562,8 +663,12 @@ async function handleApi(req, res) {
 
         if (req.method === "POST" && url.pathname === "/api/products") {
             if (!requireAdmin(req, res, db)) return;
-            const product = await parseBody(req);
-            product.id = product.id || crypto.randomUUID();
+            const product = normalizeProduct(await parseBody(req));
+
+            if (!product.name || product.price <= 0 || !product.image) {
+                return sendJson(res, 400, { error: "Product name, price, and image are required" });
+            }
+
             db.products.push(product);
             addNotification(
                 db,
@@ -577,13 +682,28 @@ async function handleApi(req, res) {
         }
 
         const productMatch = url.pathname.match(/^\/api\/products\/([^/]+)$/);
+        if (productMatch && req.method === "GET") {
+            const id = productMatch[1];
+            const product = db.products.find(item => item.id === id);
+
+            if (!product) return sendJson(res, 404, { error: "Product not found" });
+
+            return sendJson(res, 200, { product });
+        }
+
         if (productMatch && req.method === "PUT") {
             if (!requireAdmin(req, res, db)) return;
             const id = productMatch[1];
-            const product = await parseBody(req);
             const index = db.products.findIndex(item => item.id === id);
             if (index < 0) return sendJson(res, 404, { error: "Product not found" });
-            db.products[index] = { ...product, id };
+            const product = normalizeProduct({ ...(await parseBody(req)), id }, db.products[index]);
+            product.updatedAt = new Date().toISOString();
+
+            if (!product.name || product.price <= 0 || !product.image) {
+                return sendJson(res, 400, { error: "Product name, price, and image are required" });
+            }
+
+            db.products[index] = product;
             addNotification(
                 db,
                 "product",
@@ -599,6 +719,7 @@ async function handleApi(req, res) {
             if (!requireAdmin(req, res, db)) return;
             const id = productMatch[1];
             const product = db.products.find(item => item.id === id);
+            if (!product) return sendJson(res, 404, { error: "Product not found" });
             db.products = db.products.filter(item => item.id !== id);
             addNotification(
                 db,
@@ -624,8 +745,20 @@ async function handleApi(req, res) {
             const session = requireUser(req, res, db);
             if (!session) return;
             const body = await parseBody(req);
+            const items = (Array.isArray(body.items) ? body.items : []).map(normalizeOrderItem).filter(item => item.name && item.price > 0);
+
+            if (items.length === 0) {
+                return sendJson(res, 400, { error: "Order items are required" });
+            }
+
+            const inventoryError = reduceProductInventory(db.products, items);
+            if (inventoryError) {
+                return sendJson(res, 400, { error: inventoryError });
+            }
+
             const order = {
                 ...body,
+                items,
                 id: nextOrderId(db),
                 userId: session.user.id,
                 date: new Date().toLocaleString(),

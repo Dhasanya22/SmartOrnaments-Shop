@@ -2,14 +2,204 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="refresh" content="0; url=admin/login.php">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin | SmartOrnaments</title>
+    <title>Admin Dashboard - SmartOrnaments</title>
+    <link rel="stylesheet" href="css/style.css">
 </head>
-<body>
-    <p>Redirecting to admin login...</p>
-    <script>
-        window.location.href = "admin/login.php";
-    </script>
+<body class="admin-page" onload="initAdminPage();">
+    <aside class="admin-sidebar">
+        <a href="index.html" class="brand admin-brand" aria-label="SmartOrnaments home">
+            <img src="images/Logo.png" alt="SmartOrnaments logo" class="brand-logo">
+            <span class="brand-name">SmartOrnaments</span>
+        </a>
+
+        <div class="admin-nav" aria-label="Admin sections">
+            <a href="#dashboard">Dashboard</a>
+            <a href="#products">Products</a>
+            <a href="#orders">Orders</a>
+            <a href="#users">Users</a>
+            <a href="products.html">Shop</a>
+            <a href="login.html" onclick="logout(event)">Logout</a>
+        </div>
+    </aside>
+
+    <main class="admin-main">
+        <header class="admin-header" id="dashboard">
+            <div>
+                <span class="eyebrow">Admin</span>
+                <h1>Dashboard</h1>
+            </div>
+            <div id="userDisplay"></div>
+        </header>
+
+        <section class="admin-stat-grid" aria-label="Store metrics">
+            <article class="admin-stat">
+                <span>Total Products</span>
+                <strong id="totalProducts">0</strong>
+            </article>
+            <article class="admin-stat">
+                <span>Total Orders</span>
+                <strong id="totalOrders">0</strong>
+            </article>
+            <article class="admin-stat">
+                <span>Revenue</span>
+                <strong id="totalRevenue">Rs. 0</strong>
+            </article>
+            <article class="admin-stat">
+                <span>Best Seller</span>
+                <strong id="adminBestSeller">No orders yet</strong>
+            </article>
+            <article class="admin-stat">
+                <span>Low Stock</span>
+                <strong id="lowStockCount">0</strong>
+            </article>
+            <article class="admin-stat">
+                <span>Out of Stock</span>
+                <strong id="outOfStockCount">0</strong>
+            </article>
+        </section>
+
+        <section class="admin-section">
+            <div class="section-heading">
+                <div>
+                    <span class="eyebrow">Activity</span>
+                    <h2>Notifications</h2>
+                </div>
+            </div>
+            <div id="adminNotifications" class="admin-notification-list"></div>
+        </section>
+
+        <section class="admin-section" id="products">
+            <div class="section-heading">
+                <div>
+                    <span class="eyebrow">Catalog</span>
+                    <h2>Product Management</h2>
+                </div>
+            </div>
+
+            <form class="admin-product-form" onsubmit="event.preventDefault(); saveAdminProduct();">
+                <input type="hidden" id="productId">
+
+                <label>
+                    Product name
+                    <input type="text" id="adminProductName" placeholder="Custom LED Frame" required>
+                </label>
+
+                <label>
+                    Description
+                    <textarea id="adminProductDescription" placeholder="Personalized gift frame" required></textarea>
+                </label>
+
+                <div class="admin-form-grid">
+                    <label>
+                        Price
+                        <input type="number" id="adminProductPrice" min="1" placeholder="999" required>
+                    </label>
+
+                    <label>
+                        Category
+                        <select id="adminProductType">
+                            <option value="keychain">Keychains</option>
+                            <option value="resin-work">Frames</option>
+                            <option value="bracelet">Bracelets</option>
+                            <option value="name-board-fridge-magnet">Name Boards</option>
+                            <option value="led-gifts">LED Gifts</option>
+                            <option value="couple-gifts">Couple Gifts</option>
+                            <option value="hair-accessories">Hair Accessories</option>
+                            <option value="thread-work-bangle-earrings">Bangles & Earrings</option>
+                        </select>
+                    </label>
+
+                    <label>
+                        Stock
+                        <input type="number" id="adminProductStock" min="0" value="20" required>
+                    </label>
+
+                    <label>
+                        Rating
+                        <input type="number" id="adminProductRating" min="0" max="5" step="0.1" value="4.8">
+                    </label>
+                </div>
+
+                <div class="admin-image-grid">
+                    <label>
+                        Image URL
+                        <input type="url" id="adminProductImage1" class="admin-image-field" placeholder="https://res.cloudinary.com/...">
+                    </label>
+                    <label>
+                        Image URL 2
+                        <input type="url" id="adminProductImage2" class="admin-image-field" placeholder="Optional gallery image">
+                    </label>
+                    <label>
+                        Image URL 3
+                        <input type="url" id="adminProductImage3" class="admin-image-field" placeholder="Optional gallery image">
+                    </label>
+                    <label>
+                        Image URL 4
+                        <input type="url" id="adminProductImage4" class="admin-image-field" placeholder="Optional gallery image">
+                    </label>
+                </div>
+
+                <label>
+                    Upload image
+                    <input type="file" id="adminProductUpload" accept="image/*" onchange="uploadAdminProductImage(this)">
+                </label>
+
+                <label class="checkbox-row">
+                    <input type="checkbox" id="adminProductFeatured">
+                    Featured product
+                </label>
+
+                <p id="imageUploadMsg" class="form-message"></p>
+                <p id="productAdminMsg" class="form-message"></p>
+
+                <div class="admin-form-actions">
+                    <button type="submit">Save Product</button>
+                    <button type="button" onclick="resetProductForm()">Clear</button>
+                </div>
+            </form>
+
+            <div class="inventory-strip">
+                <span><b id="inventoryCount">0</b> items tracked</span>
+                <span><b id="onlyFewLeftCount">0</b> almost sold out</span>
+                <span><b id="outOfStockCountInline">0</b> need restock</span>
+            </div>
+
+            <div id="adminProducts" class="product-container"></div>
+        </section>
+
+        <section class="admin-section" id="orders">
+            <div class="section-heading">
+                <div>
+                    <span class="eyebrow">Fulfillment</span>
+                    <h2>Order Management</h2>
+                </div>
+            </div>
+
+            <div class="order-filters">
+                <button type="button" class="active" onclick="setOrderFilter('all')">All</button>
+                <button type="button" onclick="setOrderFilter('Processing')">Processing</button>
+                <button type="button" onclick="setOrderFilter('Packed')">Packed</button>
+                <button type="button" onclick="setOrderFilter('Shipped')">Shipped</button>
+                <button type="button" onclick="setOrderFilter('Delivered')">Delivered</button>
+            </div>
+
+            <div id="adminOrders" class="product-container"></div>
+        </section>
+
+        <section class="admin-section" id="users">
+            <div class="section-heading">
+                <div>
+                    <span class="eyebrow">Customers</span>
+                    <h2>Users</h2>
+                </div>
+                <span><b id="totalCustomers">0</b> accounts</span>
+            </div>
+
+            <div id="adminUsers" class="admin-record-grid"></div>
+        </section>
+    </main>
+
+    <script src="js/script.js"></script>
 </body>
 </html>
