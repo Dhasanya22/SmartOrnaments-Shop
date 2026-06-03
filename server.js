@@ -3,6 +3,14 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 
+let mysql;
+try {
+    mysql = require("mysql2/promise");
+} catch (error) {
+    console.error("MySQL driver missing. Run npm install before starting the server.");
+    process.exit(1);
+}
+
 const PORT = process.env.PORT || 3000;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR
@@ -15,10 +23,20 @@ const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "smartornaments.shop@gmail.
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
 const LEGACY_ADMIN_USERNAME = "admin";
 const OWNER_EMAIL = process.env.OWNER_EMAIL || ADMIN_USERNAME;
+const MYSQL_HOST = process.env.MYSQL_HOST || "localhost";
+const MYSQL_PORT = Number(process.env.MYSQL_PORT || 3306);
+const MYSQL_USER = process.env.MYSQL_USER || "root";
+const MYSQL_PASSWORD = process.env.MYSQL_PASSWORD || "";
+const MYSQL_DATABASE = process.env.MYSQL_DATABASE || process.env.DB_NAME || "smartornaments";
+const MYSQL_CONNECTION_LIMIT = Number(process.env.MYSQL_CONNECTION_LIMIT || 10);
+const MYSQL_AUTO_MIGRATE = process.env.MYSQL_AUTO_MIGRATE !== "0";
 const SESSION_TTL_MS = Number(process.env.SESSION_TTL_MS || 1000 * 60 * 60 * 24 * 7);
 const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 60_000);
 const RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_MAX || 120);
 const rateLimitBuckets = new Map();
+let mysqlPool = null;
+let dbInitialized = false;
+let dbInitializing = null;
 
 function cleanProductDisplayText(value) {
     return String(value || "")
@@ -182,45 +200,57 @@ function verifyPassword(password, stored) {
     return hashPassword(password, salt) === stored;
 }
 
-function ensureDb() {
-    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-    if (!fs.existsSync(DB_FILE)) {
-        writeDb({
-            users: [
-                {
-                    id: "admin",
-                    username: ADMIN_USERNAME,
-                    passwordHash: hashPassword(ADMIN_PASSWORD),
-                    role: "admin"
-                }
-            ],
-            sessions: [],
-            products: defaultProducts,
-            orders: [],
-            contacts: [],
-            notifications: [],
-            wishlists: [],
-            reviews: [],
-            analyticsEvents: [],
-            lastOrderNumber: 1000
-        });
+function baseDb() {
+    return {
+        users: [
+            {
+                id: "admin",
+                username: ADMIN_USERNAME,
+                passwordHash: hashPassword(ADMIN_PASSWORD),
+                role: "admin",
+                loginAliases: [ADMIN_USERNAME, LEGACY_ADMIN_USERNAME]
+            }
+        ],
+        sessions: [],
+        products: defaultProducts,
+        orders: [],
+        contacts: [],
+        notifications: [],
+        wishlists: [],
+        reviews: [],
+        analyticsEvents: [],
+        lastOrderNumber: 1000
+    };
+}
+
+function sqlId(value) {
+    if (!/^[A-Za-z0-9_]+$/.test(value || "")) {
+        throw new Error("Invalid MySQL identifier: " + value);
+    }
+
+    return "`" + value + "`";
+}
+
+function parseStoredJson(value, fallback = {}) {
+    if (!value) return fallback;
+
+    try {
+        return typeof value === "string" ? JSON.parse(value) : value;
+    } catch (error) {
+        return fallback;
     }
 }
 
-function readDb() {
-    ensureDb();
-    const db = JSON.parse(fs.readFileSync(DB_FILE, "utf8"));
+function normalizeDbShape(source = {}) {
+    const db = { ...source };
     let changed = false;
 
-    if (!Array.isArray(db.users)) {
-        db.users = [];
-        changed = true;
-    }
-
-    if (!Array.isArray(db.sessions)) {
-        db.sessions = [];
-        changed = true;
-    }
+    ["users", "sessions", "orders", "contacts", "notifications", "wishlists", "reviews", "analyticsEvents"].forEach(key => {
+        if (!Array.isArray(db[key])) {
+            db[key] = [];
+            changed = true;
+        }
+    });
 
     if (!Array.isArray(db.products)) {
         db.products = defaultProducts;
@@ -238,40 +268,27 @@ function readDb() {
         changed = true;
     }
 
-    if (!Array.isArray(db.orders)) {
-        db.orders = [];
-        changed = true;
-    }
-
-    if (!Array.isArray(db.contacts)) {
-        db.contacts = [];
-        changed = true;
-    }
-
-    if (!Array.isArray(db.notifications)) {
-        db.notifications = [];
-        changed = true;
-    }
-
-    if (!Array.isArray(db.wishlists)) {
-        db.wishlists = [];
-        changed = true;
-    }
-
-    if (!Array.isArray(db.reviews)) {
-        db.reviews = [];
-        changed = true;
-    }
-
-    if (!Array.isArray(db.analyticsEvents)) {
-        db.analyticsEvents = [];
-        changed = true;
-    }
-
     if (!Number(db.lastOrderNumber)) {
         db.lastOrderNumber = 1000;
         changed = true;
     }
+
+    ["contacts", "notifications", "reviews", "analyticsEvents"].forEach(key => {
+        db[key].forEach(item => {
+            if (!item.id) {
+                item.id = crypto.randomUUID();
+                changed = true;
+            }
+        });
+    });
+
+    db.wishlists = db.wishlists
+        .filter(item => item && item.userId)
+        .map(item => ({
+            ...item,
+            productIds: Array.isArray(item.productIds) ? item.productIds : [],
+            updatedAt: item.updatedAt || new Date().toISOString()
+        }));
 
     let adminUser = db.users.find(user =>
         user.role === "admin"
@@ -311,13 +328,376 @@ function readDb() {
         changed = true;
     }
 
-    if (changed) writeDb(db);
+    return { db, changed };
+}
+
+function readLegacyJsonDb() {
+    if (!fs.existsSync(DB_FILE)) return null;
+
+    try {
+        return JSON.parse(fs.readFileSync(DB_FILE, "utf8"));
+    } catch (error) {
+        console.warn(`Could not read legacy JSON DB at ${DB_FILE}: ${error.message}`);
+        return null;
+    }
+}
+
+function toSqlDate(value) {
+    if (!value) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toISOString().slice(0, 19).replace("T", " ");
+}
+
+async function ensureDb() {
+    if (dbInitialized) return;
+    if (dbInitializing) return dbInitializing;
+
+    dbInitializing = (async () => {
+        await createMysqlPool();
+        await createMysqlTables();
+        dbInitialized = true;
+
+        if (MYSQL_AUTO_MIGRATE) {
+            await migrateLegacyJsonDb();
+        }
+    })();
+
+    try {
+        await dbInitializing;
+    } finally {
+        dbInitializing = null;
+    }
+}
+
+async function createMysqlPool() {
+    if (mysqlPool) return;
+
+    const connection = await mysql.createConnection({
+        host: MYSQL_HOST,
+        port: MYSQL_PORT,
+        user: MYSQL_USER,
+        password: MYSQL_PASSWORD
+    });
+
+    await connection.query(
+        `CREATE DATABASE IF NOT EXISTS ${sqlId(MYSQL_DATABASE)} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
+    );
+    await connection.end();
+
+    mysqlPool = mysql.createPool({
+        host: MYSQL_HOST,
+        port: MYSQL_PORT,
+        user: MYSQL_USER,
+        password: MYSQL_PASSWORD,
+        database: MYSQL_DATABASE,
+        waitForConnections: true,
+        connectionLimit: MYSQL_CONNECTION_LIMIT,
+        charset: "utf8mb4"
+    });
+}
+
+async function createMysqlTables() {
+    const tableSql = [
+        `CREATE TABLE IF NOT EXISTS app_users (
+            id VARCHAR(64) PRIMARY KEY,
+            position INT NOT NULL DEFAULT 0,
+            username VARCHAR(190),
+            role VARCHAR(30),
+            data LONGTEXT NOT NULL,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_app_users_username (username),
+            INDEX idx_app_users_role (role)
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
+        `CREATE TABLE IF NOT EXISTS app_sessions (
+            token VARCHAR(128) PRIMARY KEY,
+            position INT NOT NULL DEFAULT 0,
+            user_id VARCHAR(64),
+            expires_at DATETIME NULL,
+            data LONGTEXT NOT NULL,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_app_sessions_user (user_id),
+            INDEX idx_app_sessions_expires (expires_at)
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
+        `CREATE TABLE IF NOT EXISTS app_products (
+            id VARCHAR(120) PRIMARY KEY,
+            position INT NOT NULL DEFAULT 0,
+            name VARCHAR(255),
+            type VARCHAR(100),
+            category VARCHAR(120),
+            price DECIMAL(12,2) NOT NULL DEFAULT 0,
+            stock INT NOT NULL DEFAULT 0,
+            data LONGTEXT NOT NULL,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_app_products_name (name),
+            INDEX idx_app_products_type (type),
+            INDEX idx_app_products_category (category)
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
+        `CREATE TABLE IF NOT EXISTS app_orders (
+            id VARCHAR(64) PRIMARY KEY,
+            position INT NOT NULL DEFAULT 0,
+            user_id VARCHAR(64),
+            status VARCHAR(40),
+            total DECIMAL(12,2) NOT NULL DEFAULT 0,
+            created_sort DATETIME NULL,
+            data LONGTEXT NOT NULL,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_app_orders_user (user_id),
+            INDEX idx_app_orders_status (status)
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
+        `CREATE TABLE IF NOT EXISTS app_contacts (
+            id VARCHAR(64) PRIMARY KEY,
+            position INT NOT NULL DEFAULT 0,
+            data LONGTEXT NOT NULL,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
+        `CREATE TABLE IF NOT EXISTS app_notifications (
+            id VARCHAR(64) PRIMARY KEY,
+            position INT NOT NULL DEFAULT 0,
+            type VARCHAR(40),
+            is_read TINYINT(1) NOT NULL DEFAULT 0,
+            data LONGTEXT NOT NULL,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_app_notifications_type (type),
+            INDEX idx_app_notifications_read (is_read)
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
+        `CREATE TABLE IF NOT EXISTS app_wishlists (
+            user_id VARCHAR(64) PRIMARY KEY,
+            position INT NOT NULL DEFAULT 0,
+            data LONGTEXT NOT NULL,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
+        `CREATE TABLE IF NOT EXISTS app_reviews (
+            id VARCHAR(64) PRIMARY KEY,
+            position INT NOT NULL DEFAULT 0,
+            product_id VARCHAR(120),
+            user_id VARCHAR(64),
+            rating TINYINT,
+            data LONGTEXT NOT NULL,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_app_reviews_product (product_id)
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
+        `CREATE TABLE IF NOT EXISTS app_analytics_events (
+            id VARCHAR(64) PRIMARY KEY,
+            position INT NOT NULL DEFAULT 0,
+            data LONGTEXT NOT NULL,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
+        `CREATE TABLE IF NOT EXISTS app_meta (
+            name VARCHAR(64) PRIMARY KEY,
+            value LONGTEXT NOT NULL
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
+    ];
+
+    for (const statement of tableSql) {
+        await mysqlPool.query(statement);
+    }
+}
+
+async function migrateLegacyJsonDb() {
+    const [rows] = await mysqlPool.query(`
+        SELECT
+            (SELECT COUNT(*) FROM app_users) AS usersCount,
+            (SELECT COUNT(*) FROM app_products) AS productsCount,
+            (SELECT COUNT(*) FROM app_orders) AS ordersCount
+    `);
+    const counts = rows[0] || {};
+
+    if (Number(counts.usersCount) || Number(counts.productsCount) || Number(counts.ordersCount)) {
+        return;
+    }
+
+    const legacy = readLegacyJsonDb();
+    const { db } = normalizeDbShape(legacy || baseDb());
+    await persistDb(db);
+
+    if (legacy) {
+        console.log(`Imported existing JSON data from ${DB_FILE} into MySQL database ${MYSQL_DATABASE}.`);
+    }
+}
+
+async function readDocuments(table) {
+    const [rows] = await mysqlPool.query(`SELECT data FROM ${sqlId(table)} ORDER BY position ASC`);
+    return rows.map(row => parseStoredJson(row.data, {})).filter(Boolean);
+}
+
+async function readDb() {
+    await ensureDb();
+
+    const [users, sessions, products, orders, contacts, notifications, wishlists, reviews, analyticsEvents, metaRows] = await Promise.all([
+        readDocuments("app_users"),
+        readDocuments("app_sessions"),
+        readDocuments("app_products"),
+        readDocuments("app_orders"),
+        readDocuments("app_contacts"),
+        readDocuments("app_notifications"),
+        readDocuments("app_wishlists"),
+        readDocuments("app_reviews"),
+        readDocuments("app_analytics_events"),
+        mysqlPool.query("SELECT name, value FROM app_meta")
+    ]);
+    const meta = Object.fromEntries((metaRows[0] || []).map(row => [row.name, row.value]));
+    const { db, changed } = normalizeDbShape({
+        users,
+        sessions,
+        products,
+        orders,
+        contacts,
+        notifications,
+        wishlists,
+        reviews,
+        analyticsEvents,
+        lastOrderNumber: Number(meta.lastOrderNumber || 1000)
+    });
+
+    if (changed) {
+        await persistDb(db);
+    }
 
     return db;
 }
 
-function writeDb(db) {
-    fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+async function writeDb(db) {
+    await ensureDb();
+    const normalized = normalizeDbShape(db).db;
+    await persistDb(normalized);
+}
+
+async function persistDb(db) {
+    const connection = await mysqlPool.getConnection();
+
+    try {
+        await connection.beginTransaction();
+        await connection.query("DELETE FROM app_meta");
+        await connection.query("DELETE FROM app_analytics_events");
+        await connection.query("DELETE FROM app_reviews");
+        await connection.query("DELETE FROM app_wishlists");
+        await connection.query("DELETE FROM app_notifications");
+        await connection.query("DELETE FROM app_contacts");
+        await connection.query("DELETE FROM app_orders");
+        await connection.query("DELETE FROM app_products");
+        await connection.query("DELETE FROM app_sessions");
+        await connection.query("DELETE FROM app_users");
+
+        await persistUsers(connection, db.users);
+        await persistSessions(connection, db.sessions);
+        await persistProducts(connection, db.products);
+        await persistOrders(connection, db.orders);
+        await persistSimpleDocuments(connection, "app_contacts", "id", db.contacts);
+        await persistNotifications(connection, db.notifications);
+        await persistWishlists(connection, db.wishlists);
+        await persistReviews(connection, db.reviews);
+        await persistSimpleDocuments(connection, "app_analytics_events", "id", db.analyticsEvents);
+        await connection.query("INSERT INTO app_meta (name, value) VALUES (?, ?)", ["lastOrderNumber", String(db.lastOrderNumber || 1000)]);
+        await connection.commit();
+    } catch (error) {
+        await connection.rollback();
+        throw error;
+    } finally {
+        connection.release();
+    }
+}
+
+async function persistUsers(connection, users = []) {
+    for (const [index, user] of users.entries()) {
+        await connection.query(
+            "INSERT INTO app_users (id, position, username, role, data) VALUES (?, ?, ?, ?, ?)",
+            [user.id, index, user.username || user.email || "", user.role || "customer", JSON.stringify(user)]
+        );
+    }
+}
+
+async function persistSessions(connection, sessions = []) {
+    for (const [index, session] of sessions.entries()) {
+        await connection.query(
+            "INSERT INTO app_sessions (token, position, user_id, expires_at, data) VALUES (?, ?, ?, ?, ?)",
+            [session.token, index, session.userId || "", toSqlDate(session.expiresAt), JSON.stringify(session)]
+        );
+    }
+}
+
+async function persistProducts(connection, products = []) {
+    for (const [index, product] of products.entries()) {
+        await connection.query(
+            "INSERT INTO app_products (id, position, name, type, category, price, stock, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                product.id,
+                index,
+                product.name || "",
+                product.type || "",
+                product.category || "",
+                Number(product.price || 0),
+                Number(product.stock || 0),
+                JSON.stringify(product)
+            ]
+        );
+    }
+}
+
+async function persistOrders(connection, orders = []) {
+    for (const [index, order] of orders.entries()) {
+        await connection.query(
+            "INSERT INTO app_orders (id, position, user_id, status, total, created_sort, data) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [
+                order.id,
+                index,
+                order.userId || "",
+                order.status || "",
+                Number(order.total || 0),
+                toSqlDate(order.createdAt || order.date || order.placedAt),
+                JSON.stringify(order)
+            ]
+        );
+    }
+}
+
+async function persistNotifications(connection, notifications = []) {
+    for (const [index, notification] of notifications.entries()) {
+        await connection.query(
+            "INSERT INTO app_notifications (id, position, type, is_read, data) VALUES (?, ?, ?, ?, ?)",
+            [
+                notification.id,
+                index,
+                notification.type || "",
+                notification.read ? 1 : 0,
+                JSON.stringify(notification)
+            ]
+        );
+    }
+}
+
+async function persistWishlists(connection, wishlists = []) {
+    for (const [index, wishlist] of wishlists.entries()) {
+        await connection.query(
+            "INSERT INTO app_wishlists (user_id, position, data) VALUES (?, ?, ?)",
+            [wishlist.userId, index, JSON.stringify(wishlist)]
+        );
+    }
+}
+
+async function persistReviews(connection, reviews = []) {
+    for (const [index, review] of reviews.entries()) {
+        await connection.query(
+            "INSERT INTO app_reviews (id, position, product_id, user_id, rating, data) VALUES (?, ?, ?, ?, ?, ?)",
+            [
+                review.id,
+                index,
+                review.productId || "",
+                review.userId || "",
+                Number(review.rating || 0),
+                JSON.stringify(review)
+            ]
+        );
+    }
+}
+
+async function persistSimpleDocuments(connection, table, key, docs = []) {
+    for (const [index, doc] of docs.entries()) {
+        await connection.query(
+            `INSERT INTO ${sqlId(table)} (${sqlId(key)}, position, data) VALUES (?, ?, ?)`,
+            [doc[key], index, JSON.stringify(doc)]
+        );
+    }
 }
 
 function isPathInside(parent, target) {
@@ -796,9 +1176,10 @@ function serveStatic(req, res) {
 
 async function handleApi(req, res) {
     const url = new URL(req.url, `http://${req.headers.host}`);
-    const db = readDb();
 
     try {
+        const db = await readDb();
+
         if (req.method === "POST" && url.pathname === "/api/signup") {
             const body = await parseBody(req);
             const username = String(body.username || "").trim();
@@ -816,7 +1197,7 @@ async function handleApi(req, res) {
                 role: "customer"
             };
             db.users.push(user);
-            writeDb(db);
+            await writeDb(db);
             return sendJson(res, 201, { user: publicUser(user) });
         }
 
@@ -839,7 +1220,7 @@ async function handleApi(req, res) {
                 createdAt: new Date(now).toISOString(),
                 expiresAt: new Date(now + SESSION_TTL_MS).toISOString()
             });
-            writeDb(db);
+            await writeDb(db);
             return sendJson(res, 200, { token, user: publicUser(user), expiresAt: db.sessions[db.sessions.length - 1].expiresAt });
         }
 
@@ -847,7 +1228,7 @@ async function handleApi(req, res) {
             const session = getSession(req, db);
             if (session) {
                 db.sessions = db.sessions.filter(item => item.token !== session.token);
-                writeDb(db);
+                await writeDb(db);
             }
             return sendJson(res, 200, { ok: true });
         }
@@ -871,7 +1252,7 @@ async function handleApi(req, res) {
                 `${contact.name} sent a message: ${contact.subject}`,
                 { contactId: contact.id }
             );
-            writeDb(db);
+            await writeDb(db);
             return sendJson(res, 201, { contact, notification, ownerEmail: OWNER_EMAIL });
         }
 
@@ -931,7 +1312,7 @@ async function handleApi(req, res) {
                 `${product.name || "Product"} was added to the shop`,
                 { productId: product.id }
             );
-            writeDb(db);
+            await writeDb(db);
             return sendJson(res, 201, { product });
         }
 
@@ -965,7 +1346,7 @@ async function handleApi(req, res) {
                 `${db.products[index].name || "Product"} was updated`,
                 { productId: id }
             );
-            writeDb(db);
+            await writeDb(db);
             return sendJson(res, 200, { product: db.products[index] });
         }
 
@@ -982,7 +1363,7 @@ async function handleApi(req, res) {
                 `${product?.name || "Product"} was removed from the shop`,
                 { productId: id }
             );
-            writeDb(db);
+            await writeDb(db);
             return sendJson(res, 200, { ok: true });
         }
 
@@ -1013,7 +1394,7 @@ async function handleApi(req, res) {
 
             if (!wishlist.productIds.includes(productId)) wishlist.productIds.push(productId);
             wishlist.updatedAt = new Date().toISOString();
-            writeDb(db);
+            await writeDb(db);
             return sendJson(res, 200, { productIds: wishlist.productIds });
         }
 
@@ -1027,7 +1408,7 @@ async function handleApi(req, res) {
             if (wishlist) {
                 wishlist.productIds = wishlist.productIds.filter(id => id !== productId);
                 wishlist.updatedAt = new Date().toISOString();
-                writeDb(db);
+                await writeDb(db);
             }
 
             return sendJson(res, 200, { productIds: wishlist?.productIds || [] });
@@ -1066,7 +1447,7 @@ async function handleApi(req, res) {
 
             db.reviews.push(review);
             addNotification(db, "review", "New product review", `${session.user.username} reviewed ${product.name}`, { productId, reviewId: review.id });
-            writeDb(db);
+            await writeDb(db);
             return sendJson(res, 201, { review, stats: productReviewStats(productId, db.reviews) });
         }
 
@@ -1106,7 +1487,7 @@ async function handleApi(req, res) {
             };
             db.orders.push(order);
             addNotification(db, "order", "New order received", summarizeOrder(order), { orderId: order.id });
-            writeDb(db);
+            await writeDb(db);
             return sendJson(res, 201, { order });
         }
 
@@ -1138,7 +1519,7 @@ async function handleApi(req, res) {
 
             if (nextStatus === "Making") order.confirmedAt = order.confirmedAt || order.makingAt || now;
 
-            writeDb(db);
+            await writeDb(db);
             return sendJson(res, 200, { order });
         }
 
@@ -1152,7 +1533,7 @@ async function handleApi(req, res) {
                 return sendJson(res, 403, { error: "Not allowed" });
             }
             db.orders = db.orders.filter(item => item.id !== id);
-            writeDb(db);
+            await writeDb(db);
             return sendJson(res, 200, { ok: true });
         }
 
@@ -1172,7 +1553,7 @@ async function handleApi(req, res) {
             const body = await parseBody(req);
             notification.read = body.read !== false;
             notification.updatedAt = new Date().toISOString();
-            writeDb(db);
+            await writeDb(db);
             return sendJson(res, 200, { notification });
         }
 
@@ -1188,17 +1569,27 @@ const server = http.createServer((req, res) => {
             sendJson(res, 429, { error: "Too many requests. Please try again shortly." });
             return;
         }
-        handleApi(req, res);
+        handleApi(req, res).catch(error => {
+            sendJson(res, 500, { error: error.message });
+        });
     } else {
         serveStatic(req, res);
     }
 });
 
-server.listen(PORT, "0.0.0.0", () => {
-    console.log(`SmartOrnaments server running at http://localhost:${PORT}`);
-    console.log(`Admin username: ${ADMIN_USERNAME}`);
-    console.log(`Admin fallback username: ${LEGACY_ADMIN_USERNAME}`);
-    console.log(process.env.ADMIN_PASSWORD
-        ? "Admin password loaded from ADMIN_PASSWORD"
-        : "Default admin password: admin123");
-});
+ensureDb()
+    .then(() => {
+        server.listen(PORT, "0.0.0.0", () => {
+            console.log(`SmartOrnaments server running at http://localhost:${PORT}`);
+            console.log(`MySQL database: ${MYSQL_DATABASE} on ${MYSQL_HOST}:${MYSQL_PORT}`);
+            console.log(`Admin username: ${ADMIN_USERNAME}`);
+            console.log(`Admin fallback username: ${LEGACY_ADMIN_USERNAME}`);
+            console.log(process.env.ADMIN_PASSWORD
+                ? "Admin password loaded from ADMIN_PASSWORD"
+                : "Default admin password: admin123");
+        });
+    })
+    .catch(error => {
+        console.error("MySQL startup failed:", error.message);
+        process.exit(1);
+    });

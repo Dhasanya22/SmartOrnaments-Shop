@@ -6,18 +6,24 @@ services:
     plan: starter
     buildCommand: npm install
     startCommand: npm start
-    disk:
-      name: smartornaments-data
-      mountPath: /var/data
-      sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production
-      - key: DATA_DIR
-        value: /var/data
       - key: ADMIN_USERNAME
         sync: false
       - key: ADMIN_PASSWORD
         sync: false
       - key: OWNER_EMAIL
         value: smartornaments.shop@gmail.com
+      - key: MYSQL_HOST
+        sync: false
+      - key: MYSQL_PORT
+        value: 3306
+      - key: MYSQL_USER
+        sync: false
+      - key: MYSQL_PASSWORD
+        sync: false
+      - key: MYSQL_DATABASE
+        value: smartornaments
+      - key: MYSQL_AUTO_MIGRATE
+        value: 1
