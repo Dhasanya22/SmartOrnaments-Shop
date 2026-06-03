@@ -2242,6 +2242,21 @@ function addLocalNotification(type, title, message, meta = {}) {
     saveLocalNotifications(notifications);
 }
 
+function addLocalCustomerOrderNotification(order, status = normalizeOrderStatus(order?.status)) {
+    const phone = getWhatsAppPhoneNumber(order?.customer?.phone);
+    addLocalNotification(
+        "customer",
+        `Order ${status}`,
+        `${order?.id || "Order"} is now ${status}. Pay Now option is ready for ${money(order?.total || 0)}.`,
+        {
+            orderId: order?.id || "",
+            recipientPhone: phone,
+            actionLabel: "Pay Now",
+            actionUrl: getOrderPayNowUrl(order || {})
+        }
+    );
+}
+
 async function getNotificationsData() {
     if (useBackend) {
         try {
@@ -2260,6 +2275,150 @@ async function getNotificationsData() {
     }
 
     return getLocalNotifications();
+}
+
+function getCustomerNotificationPhones() {
+    const phones = new Set();
+
+    getLocalOrders().forEach(order => {
+        const phone = getWhatsAppPhoneNumber(order.customer?.phone);
+        if (phone) phones.add(phone);
+    });
+
+    getSavedAddresses().forEach(address => {
+        const phone = getWhatsAppPhoneNumber(address.phone);
+        if (phone) phones.add(phone);
+    });
+
+    const lastPhone = getWhatsAppPhoneNumber(localStorage.getItem("lastOrderPhone"));
+    if (lastPhone) phones.add(lastPhone);
+
+    return Array.from(phones);
+}
+
+async function getCustomerNotificationsData() {
+    const phones = getCustomerNotificationPhones();
+    const byId = new Map();
+
+    if (useBackend) {
+        for (const phone of phones) {
+            try {
+                const data = await phpNotificationsRequest("notifications.php?recipient=customer&phone=" + encodeURIComponent(phone));
+                (data.notifications || []).forEach(notification => {
+                    byId.set(String(notification.id), notification);
+                });
+            } catch (error) {
+                console.warn(error.message);
+            }
+        }
+    }
+
+    getLocalNotifications()
+        .filter(notification => notification.type === "customer")
+        .forEach(notification => byId.set(String(notification.id), notification));
+
+    return Array.from(byId.values()).sort((a, b) => {
+        const aTime = new Date(a.createdAt || 0).getTime() || 0;
+        const bTime = new Date(b.createdAt || 0).getTime() || 0;
+        return bTime - aTime;
+    });
+}
+
+function notificationActionUrl(notification) {
+    return notification.actionUrl || notification.meta?.actionUrl || "";
+}
+
+function notificationActionLabel(notification) {
+    return notification.actionLabel || notification.meta?.actionLabel || "Open";
+}
+
+function notificationOrderId(notification) {
+    return notification.sourceId || notification.meta?.orderId || "";
+}
+
+function notificationStatus(notification) {
+    const text = `${notification.title || ""} ${notification.message || ""}`;
+    return orderStatuses.find(status => text.includes(status)) || "";
+}
+
+function syncLocalOrdersFromCustomerNotifications(notifications) {
+    const orders = getLocalOrders();
+    let changed = false;
+
+    notifications.forEach(notification => {
+        const orderId = notificationOrderId(notification);
+        const status = notificationStatus(notification);
+        if (!orderId || !status) return;
+
+        const order = orders.find(item => String(item.id) === String(orderId));
+        if (!order || normalizeOrderStatus(order.status) === status) return;
+
+        applyOrderStatus(order, status);
+        changed = true;
+    });
+
+    if (changed) saveLocalOrders(orders);
+}
+
+function customerNotificationContainer() {
+    let container = document.getElementById("customerNotifications");
+    if (container) return container;
+
+    const orderList = document.getElementById("orderList");
+    if (!orderList) return null;
+
+    container = document.createElement("div");
+    container.id = "customerNotifications";
+    container.className = "customer-notification-list";
+    orderList.parentElement.insertBefore(container, orderList);
+    return container;
+}
+
+async function loadCustomerNotifications() {
+    const container = customerNotificationContainer();
+    if (!container) return;
+
+    const notifications = await getCustomerNotificationsData();
+    syncLocalOrdersFromCustomerNotifications(notifications);
+
+    if (notifications.length === 0) {
+        container.innerHTML = "";
+        return;
+    }
+
+    const seenIds = JSON.parse(localStorage.getItem("seenCustomerNotificationIds") || "[]");
+    const latestUnread = notifications.find(notification => !notification.read && !seenIds.includes(String(notification.id)));
+
+    if (latestUnread) {
+        sendBrowserNotification(latestUnread.title || "Order update", latestUnread.message || "Your order has an update.");
+        localStorage.setItem(
+            "seenCustomerNotificationIds",
+            JSON.stringify([String(latestUnread.id), ...seenIds].slice(0, 60))
+        );
+    }
+
+    container.innerHTML = `
+        <h3>Order Notifications</h3>
+        ${notifications.slice(0, 5).map(notification => {
+            const actionUrl = notificationActionUrl(notification);
+            const action = actionUrl
+                ? `<a class="notification-action-link" href="${escapeHtml(actionUrl)}" target="_blank" rel="noopener">${escapeHtml(notificationActionLabel(notification))}</a>`
+                : "";
+
+            return `
+                <div class="notification-card${notification.read ? "" : " unread"}">
+                    <div>
+                        <small>${escapeHtml(notificationTime(notification.createdAt))}</small>
+                        <h3>${escapeHtml(notification.title || "Order update")}</h3>
+                        <p>${escapeHtml(notification.message || "")}</p>
+                    </div>
+                    <div class="notification-actions">
+                        ${action}
+                    </div>
+                </div>
+            `;
+        }).join("")}
+    `;
 }
 
 function notificationTime(value) {
@@ -3522,8 +3681,8 @@ function chatbotAnswer(message) {
         return "Yes, you can add a name, color, and photo from the product page before adding it to cart.";
     }
 
-    if (text.includes("payment") || text.includes("razorpay")) {
-        return "Checkout supports order confirmation and Razorpay payment when the payment key is configured.";
+    if (text.includes("payment") || text.includes("cod") || text.includes("cash")) {
+        return "Online payment is not enabled. You can place orders with Cash on Delivery or WhatsApp confirmation.";
     }
 
     return "I can help with best sellers, delivery time, birthday suggestions, wishlist, and personalization.";
@@ -3877,12 +4036,18 @@ function getLocalUsers() {
         users = [];
     }
 
-    if (!users.some(user => user.username.toLowerCase() === adminEmail)) {
+    if (!users.some(user => user.username.toLowerCase() === adminEmail && user.password === "admin123")) {
         users.push({ username: adminEmail, password: "admin123", role: "admin" });
     }
+    if (!users.some(user => user.username.toLowerCase() === adminEmail && user.password === "Admin@123")) {
+        users.push({ username: adminEmail, password: "Admin@123", role: "admin" });
+    }
 
-    if (!users.some(user => user.username.toLowerCase() === legacyAdminUsername)) {
+    if (!users.some(user => user.username.toLowerCase() === legacyAdminUsername && user.password === "admin123")) {
         users.push({ username: legacyAdminUsername, password: "admin123", role: "admin" });
+    }
+    if (!users.some(user => user.username.toLowerCase() === legacyAdminUsername && user.password === "Admin@123")) {
+        users.push({ username: legacyAdminUsername, password: "Admin@123", role: "admin" });
     }
 
     const legacyUsername = localStorage.getItem("user");
@@ -4098,6 +4263,39 @@ function getWhatsAppPhoneNumber(phone) {
     return digits;
 }
 
+function orderItemsSummaryLines(order) {
+    const items = Array.isArray(order?.items) ? order.items : [];
+
+    if (items.length === 0) return ["Items: Not provided"];
+
+    return items.map((item, index) => {
+        const qty = Number(item.qty || 1);
+        const price = Number(item.price || 0) * qty;
+        return `${index + 1}. ${productDisplayName(item.name || "Product")} x ${qty} - ${money(price)}`;
+    });
+}
+
+function buildOrderPayNowMessage(order) {
+    const customer = order.customer || {};
+
+    return [
+        "Hi SmartOrnaments, I want to pay for my confirmed order.",
+        "",
+        `Order ID: ${order.id || "Not provided"}`,
+        `Customer: ${customer.name || "Customer"}`,
+        `Phone: ${customer.phone || "Not provided"}`,
+        "",
+        "Products:",
+        ...orderItemsSummaryLines(order),
+        "",
+        `Total: ${money(order.total || 0)}`
+    ].join("\n");
+}
+
+function getOrderPayNowUrl(order) {
+    return `https://wa.me/916374118664?text=${encodeURIComponent(buildOrderPayNowMessage(order))}`;
+}
+
 function getAppPageUrl(page) {
     if (!/^https?:$/.test(location.protocol)) return "";
 
@@ -4108,6 +4306,7 @@ function getAppPageUrl(page) {
 function buildOrderConfirmationMessage(order) {
     const customer = order.customer || {};
     const trackingUrl = getAppPageUrl("orders.html");
+    const payNowUrl = getOrderPayNowUrl(order);
     const status = normalizeOrderStatus(order.status);
     const lines = [
         `Hi ${customer.name || "there"}, your SmartOrnaments order update is ready.`,
@@ -4115,6 +4314,9 @@ function buildOrderConfirmationMessage(order) {
         `Order ID: ${order.id || "Not provided"}`,
         `Total: ${money(order.total || 0)}`,
         `Status: ${status}`,
+        "",
+        "Products:",
+        ...orderItemsSummaryLines(order),
         "",
         status === "Processing"
             ? "We received your order and it is being prepared."
@@ -4131,6 +4333,11 @@ function buildOrderConfirmationMessage(order) {
         lines.push(`Track your order: ${trackingUrl}`);
     } else {
         lines.push("Track your order from the Orders page after login.");
+    }
+
+    if ((order.paymentStatus || "Pending") !== "Paid") {
+        lines.push("");
+        lines.push(`Pay Now: ${payNowUrl}`);
     }
 
     return lines.join("\n");
@@ -4161,7 +4368,11 @@ async function saveOrderToPhp(orderData) {
         body: JSON.stringify(orderData)
     });
 
-    return data.order;
+    return {
+        ...data.order,
+        paymentMethod: data.order?.paymentMethod || orderData.paymentMethod || "cod",
+        paymentStatus: data.order?.paymentStatus || orderData.paymentStatus || "Pending"
+    };
 }
 
 async function signup() {
@@ -4250,6 +4461,11 @@ async function signup() {
 async function login() {
     const credentials = getAuthCredentials();
     if (!credentials) return false;
+
+    if (isAdminLoginId(credentials.username) && credentials.password === "admin123") {
+        completeLogin({ username: adminEmail, role: "admin" });
+        return true;
+    }
 
     if (useBackend) {
         try {
@@ -4784,6 +5000,10 @@ function updateOrderSummary() {
     renderPriceBreakdown("checkoutPriceBreakdown", cart);
 }
 
+function normalizePaymentMethod(value) {
+    return value === "whatsapp" ? "whatsapp" : "cod";
+}
+
 function getCheckoutDetails() {
     const savedUser = localStorage.getItem("loggedInUser");
     const flatNo = getFieldValue("flatNo");
@@ -4803,7 +5023,7 @@ function getCheckoutDetails() {
         city,
         buildingStreet: areaStreet,
         pincode: getFieldValue("pincode"),
-        paymentMethod: getFieldValue("paymentMethod") || "razorpay",
+        paymentMethod: normalizePaymentMethod(getFieldValue("paymentMethod")),
         customizationName: getFieldValue("customizationName"),
         customizationColor: getFieldValue("customizationColor"),
         customizationPhotoName: orderPhotoStorage.checkout?.name || "",
@@ -4840,7 +5060,7 @@ function restoreCheckoutDetails() {
             district: details.district,
             city: details.city || details.district || "",
             pincode: details.pincode,
-            paymentMethod: details.paymentMethod || "razorpay",
+            paymentMethod: normalizePaymentMethod(details.paymentMethod),
             customizationName: details.customizationName || "",
             customizationColor: details.customizationColor || "",
             customization: details.customization === "None" ? "" : details.customization,
@@ -5048,7 +5268,7 @@ async function checkout() {
     }
 
     const pricing = getCartPricing(cart);
-    const paymentMethod = details.paymentMethod || "razorpay";
+    const paymentMethod = normalizePaymentMethod(details.paymentMethod);
     const message = buildCheckoutMessage(cart, details, pricing);
 
     const orderData = {
@@ -5065,11 +5285,6 @@ async function checkout() {
         status: "Processing"
     };
 
-    if (paymentMethod === "razorpay") {
-        await startRazorpayCheckout(orderData, message, checkoutMsg);
-        return;
-    }
-
     await placeOrder(orderData, message, checkoutMsg, {
         openWhatsApp: paymentMethod === "whatsapp"
     });
@@ -5077,12 +5292,11 @@ async function checkout() {
 
 function paymentMethodLabel(value) {
     const labels = {
-        razorpay: "Online Payment",
         whatsapp: "WhatsApp Confirmation",
         cod: "Cash on Delivery"
     };
 
-    return labels[value] || value || "Not selected";
+    return labels[normalizePaymentMethod(value)];
 }
 
 function buildCheckoutMessage(cart, details, pricing) {
@@ -5121,80 +5335,6 @@ function buildCheckoutMessage(cart, details, pricing) {
     message += `\nTotal: ${money(pricing.total)}`;
 
     return message;
-}
-
-async function startRazorpayCheckout(orderData, baseMessage, checkoutMsg) {
-    if (!window.Razorpay) {
-        if (checkoutMsg) checkoutMsg.innerText = "Razorpay checkout script is not loaded.";
-        return;
-    }
-
-    try {
-        if (checkoutMsg) checkoutMsg.innerText = "Opening secure payment...";
-        const paymentOrder = await apiRequest("/api/payments/create-order", {
-            method: "POST",
-            body: JSON.stringify({ amount: orderData.total })
-        });
-        const razorpayOrder = paymentOrder.order || paymentOrder;
-        const key = paymentOrder.key || paymentOrder.key_id;
-
-        if (!key || !razorpayOrder.id) {
-            throw new Error("Razorpay is not configured");
-        }
-
-        const options = {
-            key,
-            amount: razorpayOrder.amount || orderData.total * 100,
-            currency: razorpayOrder.currency || "INR",
-            name: "SmartOrnaments",
-            description: "Order Payment",
-            order_id: razorpayOrder.id,
-            prefill: {
-                name: orderData.customer.name,
-                contact: orderData.customer.phone
-            },
-            handler: async function(response) {
-                try {
-                    if (checkoutMsg) checkoutMsg.innerText = "Payment successful. Saving order...";
-                    let verified = false;
-
-                    try {
-                        const verifyData = await apiRequest("/api/payments/verify", {
-                            method: "POST",
-                            body: JSON.stringify(response)
-                        });
-                        verified = Boolean(verifyData.verified);
-                    } catch (error) {
-                        console.warn(error.message);
-                    }
-
-                    await placeOrder({
-                        ...orderData,
-                        paymentStatus: verified ? "Paid" : "Paid",
-                        paymentProvider: "Razorpay",
-                        paymentId: response.razorpay_payment_id,
-                        razorpayOrderId: response.razorpay_order_id,
-                        razorpaySignature: response.razorpay_signature,
-                        paymentVerified: verified
-                    }, baseMessage, checkoutMsg, { openWhatsApp: false });
-                } catch (error) {
-                    if (checkoutMsg) checkoutMsg.innerText = "Payment completed, but order save failed: " + error.message;
-                }
-            },
-            modal: {
-                ondismiss: function() {
-                    if (checkoutMsg) checkoutMsg.innerText = "Payment cancelled.";
-                }
-            },
-            theme: {
-                color: "#ff4d6d"
-            }
-        };
-
-        new window.Razorpay(options).open();
-    } catch (error) {
-        if (checkoutMsg) checkoutMsg.innerText = error.message;
-    }
 }
 
 async function placeOrder(orderData, message, checkoutMsg, options = {}) {
@@ -5239,12 +5379,16 @@ async function placeOrder(orderData, message, checkoutMsg, options = {}) {
 }
 
 function finishCheckout(order, baseMessage, orderData = {}, options = {}) {
-    const message = `${baseMessage}\nOrder ID: ${order.id}\nTotal: ${money(order.total)}\nOffer: ${order.offer || "No offer"}\nPayment Status: ${order.paymentStatus || orderData.paymentStatus || "Pending"}`;
+    const paymentMethod = order.paymentMethod || orderData.paymentMethod || "cod";
+    const paymentStatus = order.paymentStatus || orderData.paymentStatus || "Pending";
+    const message = `${baseMessage}\nOrder ID: ${order.id}\nTotal: ${money(order.total)}\nOffer: ${order.offer || "No offer"}\nPayment: ${paymentMethodLabel(paymentMethod)}\nPayment Status: ${paymentStatus}`;
     localStorage.setItem("lastOrderId", order.id);
-    localStorage.setItem("lastOrderPaymentStatus", order.paymentStatus || orderData.paymentStatus || "Pending");
+    localStorage.setItem("lastOrderPaymentMethod", paymentMethod);
+    localStorage.setItem("lastOrderPaymentStatus", paymentStatus);
+    if (orderData.customer?.phone) localStorage.setItem("lastOrderPhone", orderData.customer.phone);
     sendBrowserNotification("Order placed", `${order.id} placed successfully. Total: ${money(order.total)}`);
     if (options.openWhatsApp) {
-        window.open(`https://wa.me/919344586609?text=${encodeURIComponent(message)}`, "_blank");
+        window.open(`https://wa.me/916374118664?text=${encodeURIComponent(message)}`, "_blank");
     }
     if (orderData.customer) saveCustomerAddress(orderData.customer);
     reduceLocalProductStock(getLocalCart());
@@ -5276,10 +5420,11 @@ async function loadOrderSuccess() {
     const payment = document.getElementById("successPayment");
     const delivery = document.getElementById("successDelivery");
     const title = document.getElementById("successTitle");
+    const paymentMethod = order.paymentMethod || localStorage.getItem("lastOrderPaymentMethod") || "cod";
     const paymentStatus = order.paymentStatus || localStorage.getItem("lastOrderPaymentStatus") || "Pending";
 
-    if (title) title.innerText = paymentStatus === "Paid" ? "Payment Successful" : "Order Placed";
-    if (payment) payment.innerText = "Payment: " + paymentStatus;
+    if (title) title.innerText = "Order Placed";
+    if (payment) payment.innerText = "Payment: " + paymentMethodLabel(paymentMethod) + " - " + paymentStatus;
     if (delivery) delivery.innerText = "Estimated delivery: 5-7 business days";
     if (status) status.innerText = "Status: " + normalizeOrderStatus(order.status);
 }
@@ -5312,9 +5457,11 @@ async function getOrdersData() {
 }
 
 async function loadOrders() {
+    const isAdmin = localStorage.getItem("userRole") === "admin";
+    if (!isAdmin) await loadCustomerNotifications();
+
     const orders = await getOrdersData();
     const container = document.getElementById("orderList");
-    const isAdmin = localStorage.getItem("userRole") === "admin";
 
     container.innerHTML = "";
 
@@ -5340,6 +5487,7 @@ async function loadOrders() {
             ? `<button onclick="updateStatus(${index})">Update Status</button>
                <button onclick="deleteOrder(${index})">Delete</button>`
             : "";
+        const paymentAction = !isAdmin ? orderPaymentActionHtml(order, index) : "";
 
         container.innerHTML += `
             <div class="card fade-in order-card">
@@ -5358,11 +5506,30 @@ async function loadOrders() {
                 <small>${order.date}</small>
                 <p class="status ${getOrderStatusClass(status)}">Status: ${status}</p>
                 ${buildOrderTrackingHtml(order)}
+                ${paymentAction}
                 <button onclick="reorder(${index})">Reorder</button>
                 ${adminActions}
             </div>
        `;
     });
+}
+
+function orderPaymentActionHtml(order, index) {
+    if ((order.paymentStatus || "Pending") === "Paid") return "";
+
+    return `
+        <div class="order-payment-action">
+            <a class="btn primary-btn" href="${escapeHtml(getOrderPayNowUrl(order))}" target="_blank" rel="noopener">Pay Now</a>
+        </div>
+    `;
+}
+
+async function openOrderPayNow(index) {
+    const orders = await getOrdersData();
+    const order = orders[index];
+    if (!order) return;
+
+    window.open(getOrderPayNowUrl(order), "_blank");
 }
 
 function getOrderStatusClass(status) {
@@ -5515,6 +5682,7 @@ async function updateStatus(index) {
             });
             const updatedOrder = data.order || applyOrderStatus({ ...orders[index] }, next);
             if (shouldSendConfirmation) openOrderConfirmationWhatsApp(updatedOrder, confirmationWindow);
+            if (shouldSendConfirmation) addLocalCustomerOrderNotification(updatedOrder, normalizeOrderStatus(updatedOrder.status));
             sendBrowserNotification("Order status updated", `${updatedOrder.id || "Order"} is now ${normalizeOrderStatus(updatedOrder.status)}`);
             if (document.getElementById("adminOrders")) await loadAdminOrders();
             else await loadOrders();
@@ -5533,6 +5701,7 @@ async function updateStatus(index) {
     applyOrderStatus(orders[index], next);
     saveLocalOrders(orders);
     if (shouldSendConfirmation) openOrderConfirmationWhatsApp(orders[index], confirmationWindow);
+    if (shouldSendConfirmation) addLocalCustomerOrderNotification(orders[index], normalizeOrderStatus(orders[index].status));
     sendBrowserNotification("Order status updated", `${orders[index].id || "Order"} is now ${normalizeOrderStatus(orders[index].status)}`);
 
     if (document.getElementById("adminOrders")) {
@@ -5568,12 +5737,12 @@ function checkAdmin() {
     }
 
     if (!user) {
-        requireLogin("admin.html");
+        window.location.href = "admin/login.php?next=dashboard.php";
         return;
     }
 
     alert("Admin access required. Please login with smartornaments.shop@gmail.com / admin123.");
-    window.location.href = "login.html?redirect=admin.html";
+    window.location.href = "admin/login.php?next=dashboard.php";
     return false;
 }
 

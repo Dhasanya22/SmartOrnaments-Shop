@@ -39,6 +39,16 @@ $customization = trim($customer["customization"] ?? "None");
 $deliveryNote = trim($customer["deliveryNote"] ?? ($customer["delivery_note"] ?? "None"));
 $total = (int)($data["total"] ?? 0);
 $offer = trim($data["offer"] ?? "No offer");
+$paymentMethod = trim($data["paymentMethod"] ?? ($data["payment_method"] ?? "cod"));
+$paymentStatus = trim($data["paymentStatus"] ?? ($data["payment_status"] ?? "Pending"));
+
+if (!in_array($paymentMethod, ["cod", "whatsapp"], true)) {
+    $paymentMethod = "cod";
+}
+
+if ($paymentStatus === "") {
+    $paymentStatus = "Pending";
+}
 
 if ($address === "") {
     $address = trim($flatNo . ", " . $areaStreet, ", ");
@@ -59,8 +69,8 @@ mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 function openStoreDatabase() {
     $conn = new mysqli("localhost", "root", "");
     $conn->set_charset("utf8mb4");
-    $conn->query("CREATE DATABASE IF NOT EXISTS spo_store CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-    $conn->select_db("spo_store");
+    $conn->query("CREATE DATABASE IF NOT EXISTS smartornaments CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+    $conn->select_db("smartornaments");
 
     return $conn;
 }
@@ -253,6 +263,8 @@ try {
             items TEXT,
             total INT,
             offer VARCHAR(100),
+            payment_method VARCHAR(40) NOT NULL DEFAULT 'cod',
+            payment_status VARCHAR(40) NOT NULL DEFAULT 'Pending',
             status VARCHAR(30) NOT NULL DEFAULT 'Pending',
             making_at DATETIME NULL,
             shipped_at DATETIME NULL,
@@ -270,6 +282,8 @@ try {
     ensureOrdersColumn($conn, "customization_color", "VARCHAR(40) AFTER customization_name");
     ensureOrdersColumn($conn, "customization_photo_name", "VARCHAR(255) AFTER customization_color");
     ensureOrdersColumn($conn, "customization_photo_data", "MEDIUMTEXT AFTER customization_photo_name");
+    ensureOrdersColumn($conn, "payment_method", "VARCHAR(40) NOT NULL DEFAULT 'cod' AFTER offer");
+    ensureOrdersColumn($conn, "payment_status", "VARCHAR(40) NOT NULL DEFAULT 'Pending' AFTER payment_method");
     ensureOrdersColumn($conn, "status", "VARCHAR(30) NOT NULL DEFAULT 'Pending' AFTER offer");
     ensureOrdersColumn($conn, "making_at", "DATETIME NULL AFTER status");
     ensureOrdersColumn($conn, "shipped_at", "DATETIME NULL AFTER making_at");
@@ -291,13 +305,13 @@ try {
         INSERT INTO orders
             (name, phone, flat_no, area_street, address_type, address, state, district, street, pincode,
                 customization_name, customization_color, customization_photo_name, customization_photo_data,
-                customization, delivery_note, items, total, offer)
+                customization, delivery_note, items, total, offer, payment_method, payment_status)
         VALUES
-            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
 
     $stmt->bind_param(
-        "sssssssssssssssssis",
+        "sssssssssssssssssisss",
         $name,
         $phone,
         $flatNo,
@@ -316,7 +330,9 @@ try {
         $deliveryNote,
         $itemsJson,
         $total,
-        $offer
+        $offer,
+        $paymentMethod,
+        $paymentStatus
     );
 
     $stmt->execute();
@@ -343,6 +359,7 @@ try {
         . "Delivery Note: " . $deliveryNote . "\n\n"
         . "Items:\n" . formatOrderItems($items) . "\n\n"
         . "Offer: " . $offer . "\n"
+        . "Payment: " . $paymentMethod . " - " . $paymentStatus . "\n"
         . "Total: Rs. " . $total;
     $emailSent = sendOwnerEmail("SmartOrnaments order " . $orderId, $emailBody);
 
@@ -373,6 +390,8 @@ try {
                 "deliveryNote" => $deliveryNote
             ],
             "offer" => $offer,
+            "paymentMethod" => $paymentMethod,
+            "paymentStatus" => $paymentStatus,
             "status" => "Pending",
             "date" => $createdAt
         ]

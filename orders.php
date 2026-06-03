@@ -33,8 +33,8 @@ function requireAdmin() {
 function openStoreDatabase() {
     $conn = new mysqli("localhost", "root", "");
     $conn->set_charset("utf8mb4");
-    $conn->query("CREATE DATABASE IF NOT EXISTS spo_store CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-    $conn->select_db("spo_store");
+    $conn->query("CREATE DATABASE IF NOT EXISTS smartornaments CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+    $conn->select_db("smartornaments");
 
     return $conn;
 }
@@ -81,6 +81,8 @@ function ensureOrdersTable($conn) {
             items TEXT,
             total INT,
             offer VARCHAR(100),
+            payment_method VARCHAR(40) NOT NULL DEFAULT 'cod',
+            payment_status VARCHAR(40) NOT NULL DEFAULT 'Pending',
             status VARCHAR(30) NOT NULL DEFAULT 'Pending',
             making_at DATETIME NULL,
             shipped_at DATETIME NULL,
@@ -98,12 +100,59 @@ function ensureOrdersTable($conn) {
     ensureOrdersColumn($conn, "customization_color", "VARCHAR(40) AFTER customization_name");
     ensureOrdersColumn($conn, "customization_photo_name", "VARCHAR(255) AFTER customization_color");
     ensureOrdersColumn($conn, "customization_photo_data", "MEDIUMTEXT AFTER customization_photo_name");
+    ensureOrdersColumn($conn, "payment_method", "VARCHAR(40) NOT NULL DEFAULT 'cod' AFTER offer");
+    ensureOrdersColumn($conn, "payment_status", "VARCHAR(40) NOT NULL DEFAULT 'Pending' AFTER payment_method");
     ensureOrdersColumn($conn, "status", "VARCHAR(30) NOT NULL DEFAULT 'Pending' AFTER offer");
     ensureOrdersColumn($conn, "making_at", "DATETIME NULL AFTER status");
     ensureOrdersColumn($conn, "shipped_at", "DATETIME NULL AFTER making_at");
     ensureOrdersColumn($conn, "confirmed_at", "DATETIME NULL AFTER status");
     ensureOrdersColumn($conn, "delivered_at", "DATETIME NULL AFTER confirmed_at");
     ensureOrdersColumn($conn, "updated_at", "DATETIME NULL AFTER delivered_at");
+}
+
+function ensureNotificationsColumn($conn, $column, $definition) {
+    $stmt = $conn->prepare("
+        SELECT COUNT(*)
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = 'notifications'
+            AND COLUMN_NAME = ?
+    ");
+    $stmt->bind_param("s", $column);
+    $stmt->execute();
+    $stmt->bind_result($count);
+    $stmt->fetch();
+    $stmt->close();
+
+    if ((int)$count === 0) {
+        $conn->query("ALTER TABLE notifications ADD COLUMN " . $column . " " . $definition);
+    }
+}
+
+function ensureNotificationsTable($conn) {
+    $conn->query("
+        CREATE TABLE IF NOT EXISTS notifications (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            type VARCHAR(40) NOT NULL,
+            title VARCHAR(150) NOT NULL,
+            message TEXT,
+            source_id VARCHAR(100),
+            recipient_role VARCHAR(30) NOT NULL DEFAULT 'admin',
+            recipient_email VARCHAR(150),
+            recipient_phone VARCHAR(30),
+            action_label VARCHAR(80),
+            action_url TEXT,
+            is_read TINYINT(1) NOT NULL DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NULL
+        )
+    ");
+
+    ensureNotificationsColumn($conn, "recipient_role", "VARCHAR(30) NOT NULL DEFAULT 'admin' AFTER source_id");
+    ensureNotificationsColumn($conn, "recipient_email", "VARCHAR(150) AFTER recipient_role");
+    ensureNotificationsColumn($conn, "recipient_phone", "VARCHAR(30) AFTER recipient_email");
+    ensureNotificationsColumn($conn, "action_label", "VARCHAR(80) AFTER recipient_phone");
+    ensureNotificationsColumn($conn, "action_url", "TEXT AFTER action_label");
 }
 
 function getOrderDbId($value) {
@@ -119,6 +168,96 @@ function getOrderDbId($value) {
 function decodeItems($itemsJson) {
     $items = json_decode($itemsJson ?: "[]", true);
     return is_array($items) ? $items : [];
+}
+
+function cleanPhone($value) {
+    $digits = preg_replace("/\D+/", "", (string)$value);
+
+    if (strlen($digits) === 10) {
+        return "91" . $digits;
+    }
+
+    if (strlen($digits) === 11 && str_starts_with($digits, "0")) {
+        return "91" . substr($digits, 1);
+    }
+
+    return $digits;
+}
+
+function dbStatusFromRequest($status) {
+    $status = trim((string)$status);
+
+    if ($status === "Processing") return "Pending";
+    if ($status === "Confirmed" || $status === "Packed") return "Making";
+    if (in_array($status, ["Pending", "Making", "Shipped", "Delivered"], true)) return $status;
+
+    return "";
+}
+
+function displayStatus($status) {
+    if ($status === "Pending") return "Processing";
+    if ($status === "Confirmed" || $status === "Making") return "Packed";
+
+    return $status ?: "Processing";
+}
+
+function formatMoneyText($amount) {
+    return "Rs. " . (int)$amount;
+}
+
+function orderItemsSummary($itemsJson) {
+    $items = decodeItems($itemsJson);
+    $lines = [];
+
+    foreach ($items as $index => $item) {
+        $qty = max(1, (int)($item["qty"] ?? 1));
+        $name = trim((string)($item["name"] ?? "Product"));
+        $price = (int)($item["price"] ?? 0) * $qty;
+        $lines[] = ($index + 1) . ". " . $name . " x " . $qty . " - " . formatMoneyText($price);
+    }
+
+    return count($lines) ? implode("; ", $lines) : "Items not provided";
+}
+
+function buildPayNowUrl($row) {
+    $orderId = "SO-" . $row["id"];
+    $message = "Hi SmartOrnaments, I want to pay for my confirmed order.\n\n"
+        . "Order ID: " . $orderId . "\n"
+        . "Customer: " . ($row["name"] ?? "Customer") . "\n"
+        . "Phone: " . ($row["phone"] ?? "Not provided") . "\n\n"
+        . "Products:\n" . str_replace("; ", "\n", orderItemsSummary($row["items"] ?? "[]")) . "\n\n"
+        . "Total: " . formatMoneyText($row["total"] ?? 0);
+
+    return "https://wa.me/916374118664?text=" . rawurlencode($message);
+}
+
+function addCustomerStatusNotification($conn, $row, $status) {
+    $phone = cleanPhone($row["phone"] ?? "");
+
+    if ($phone === "") {
+        return;
+    }
+
+    $orderId = "SO-" . $row["id"];
+    $title = "Order " . $status;
+    $message = $orderId . " is now " . $status . ". Products: "
+        . orderItemsSummary($row["items"] ?? "[]")
+        . ". Total: " . formatMoneyText($row["total"] ?? 0)
+        . ". Pay Now option is ready.";
+    $actionLabel = "Pay Now";
+    $actionUrl = buildPayNowUrl($row);
+    $type = "customer";
+    $role = "customer";
+    $email = "";
+
+    $stmt = $conn->prepare("
+        INSERT INTO notifications
+            (type, title, message, source_id, recipient_role, recipient_email, recipient_phone, action_label, action_url)
+        VALUES
+            (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ");
+    $stmt->bind_param("sssssssss", $type, $title, $message, $orderId, $role, $email, $phone, $actionLabel, $actionUrl);
+    $stmt->execute();
 }
 
 function orderFromRow($row) {
@@ -149,6 +288,8 @@ function orderFromRow($row) {
             "deliveryNote" => $row["delivery_note"] ?? "None"
         ],
         "offer" => $row["offer"] ?? "No offer",
+        "paymentMethod" => $row["payment_method"] ?? "cod",
+        "paymentStatus" => $row["payment_status"] ?? "Pending",
         "status" => $status,
         "date" => $createdAt,
         "placedAt" => $createdAt,
@@ -166,7 +307,7 @@ function getOrders($conn) {
         SELECT id, name, phone, flat_no, area_street, address_type, address,
             state, district, street, pincode, customization_name, customization_color,
             customization_photo_name, customization_photo_data, customization, delivery_note,
-            items, total, offer, status, making_at, shipped_at, confirmed_at, delivered_at, updated_at, created_at
+            items, total, offer, payment_method, payment_status, status, making_at, shipped_at, confirmed_at, delivered_at, updated_at, created_at
         FROM orders
         ORDER BY id DESC
     ");
@@ -194,6 +335,7 @@ mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 try {
     $conn = openStoreDatabase();
     ensureOrdersTable($conn);
+    ensureNotificationsTable($conn);
 
     $method = $_SERVER["REQUEST_METHOD"];
     $dbId = getOrderDbId($_GET["id"] ?? "");
@@ -209,15 +351,26 @@ try {
             sendJson(400, ["success" => false, "error" => "Order ID is required"]);
         }
 
-        $data = readJsonBody();
-        $status = trim($data["status"] ?? "Pending");
-        if ($status === "Confirmed") {
-            $status = "Making";
+        $currentOrder = $conn->prepare("
+            SELECT id, name, phone, flat_no, area_street, address_type, address,
+                state, district, street, pincode, customization_name, customization_color,
+                customization_photo_name, customization_photo_data, customization, delivery_note,
+                items, total, offer, payment_method, payment_status, status, making_at, shipped_at, confirmed_at, delivered_at, updated_at, created_at
+            FROM orders
+            WHERE id = ?
+        ");
+        $currentOrder->bind_param("i", $dbId);
+        $currentOrder->execute();
+        $previousRow = $currentOrder->get_result()->fetch_assoc();
+
+        if (!$previousRow) {
+            sendJson(404, ["success" => false, "error" => "Order not found"]);
         }
 
-        $allowedStatuses = ["Pending", "Making", "Shipped", "Delivered"];
+        $data = readJsonBody();
+        $status = dbStatusFromRequest($data["status"] ?? "Pending");
 
-        if (!in_array($status, $allowedStatuses, true)) {
+        if ($status === "") {
             sendJson(400, ["success" => false, "error" => "Invalid order status"]);
         }
 
@@ -248,13 +401,19 @@ try {
             SELECT id, name, phone, flat_no, area_street, address_type, address,
                 state, district, street, pincode, customization_name, customization_color,
                 customization_photo_name, customization_photo_data, customization, delivery_note,
-                items, total, offer, status, making_at, shipped_at, confirmed_at, delivered_at, updated_at, created_at
+                items, total, offer, payment_method, payment_status, status, making_at, shipped_at, confirmed_at, delivered_at, updated_at, created_at
             FROM orders
             WHERE id = ?
         ");
         $result->bind_param("i", $dbId);
         $result->execute();
         $order = $result->get_result()->fetch_assoc();
+        $previousStatus = displayStatus($previousRow["status"] ?? "Pending");
+        $nextStatus = displayStatus($order["status"] ?? $status);
+
+        if ($previousStatus !== $nextStatus) {
+            addCustomerStatusNotification($conn, $order, $nextStatus);
+        }
 
         sendJson(200, ["success" => true, "order" => orderFromRow($order), "orders" => getOrders($conn)]);
     }

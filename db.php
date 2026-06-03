@@ -44,16 +44,26 @@ mysqli_query(
 
 $adminEmail = "smartornaments.shop@gmail.com";
 $adminName = "SmartOrnaments Admin";
-$adminPassword = getenv("SMARTORNAMENTS_ADMIN_PASSWORD") ?: "Admin@123";
+$adminPassword = getenv("SMARTORNAMENTS_ADMIN_PASSWORD") ?: "admin123";
 
 $passwordHash = password_hash($adminPassword, PASSWORD_DEFAULT);
 $insertAdmin = mysqli_prepare(
     $conn,
     "INSERT INTO admins (name, email, password)
      VALUES (?, ?, ?)
-     ON DUPLICATE KEY UPDATE email = email"
+     ON DUPLICATE KEY UPDATE password = VALUES(password)"
 );
 mysqli_stmt_bind_param($insertAdmin, "sss", $adminName, $adminEmail, $passwordHash);
 mysqli_stmt_execute($insertAdmin);
 
+mysqli_query(
+    $conn,
+    "CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        email VARCHAR(150) NOT NULL UNIQUE,
+        password VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )"
+);
 ?>

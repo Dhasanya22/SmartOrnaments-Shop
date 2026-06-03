@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="images/Logo.png">
     <title>Checkout - SmartOrnaments</title>
     <link rel="stylesheet" href="css/style.css">
-    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 </head>
 
 <body onload="showUser(); updateCartCount(); initCheckoutPage();">
@@ -70,9 +70,8 @@
             <input type="text" id="pincode" placeholder="Pincode" inputmode="numeric" oninput="updateOrderSummary()">
 
             <select id="paymentMethod" aria-label="Payment method" onchange="updateOrderSummary()">
-                <option value="razorpay">Online Payment (Razorpay)</option>
-                <option value="whatsapp">WhatsApp Confirmation</option>
                 <option value="cod">Cash on Delivery</option>
+                <option value="whatsapp">WhatsApp Confirmation</option>
             </select>
 
             <h3>Customization</h3>

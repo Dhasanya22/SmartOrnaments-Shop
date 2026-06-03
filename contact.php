@@ -12,8 +12,8 @@ function sendJson($status, $data) {
 function openStoreDatabase() {
     $conn = new mysqli("localhost", "root", "");
     $conn->set_charset("utf8mb4");
-    $conn->query("CREATE DATABASE IF NOT EXISTS spo_store CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-    $conn->select_db("spo_store");
+    $conn->query("CREATE DATABASE IF NOT EXISTS smartornaments CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+    $conn->select_db("smartornaments");
 
     return $conn;
 }

@@ -28,8 +28,8 @@ mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 function openStoreDatabase() {
     $conn = new mysqli("localhost", "root", "");
     $conn->set_charset("utf8mb4");
-    $conn->query("CREATE DATABASE IF NOT EXISTS spo_store CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-    $conn->select_db("spo_store");
+    $conn->query("CREATE DATABASE IF NOT EXISTS smartornaments CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+    $conn->select_db("smartornaments");
 
     return $conn;
 }
@@ -69,9 +69,16 @@ function ensureUsersTable($conn) {
     ensureUsersColumn($conn, "created_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP AFTER role");
 }
 
+
 try {
     $conn = openStoreDatabase();
     ensureUsersTable($conn);
+
+    echo "Connected DB: ";
+    $result = $conn->query("SELECT DATABASE() as db");
+    $row = $result->fetch_assoc();
+    echo $row['db'];
+    exit;
 
     $check = $conn->prepare("SELECT id FROM users WHERE email = ?");
     $check->bind_param("s", $email);
@@ -89,9 +96,11 @@ try {
     $stmt->bind_param("sss", $name, $email, $hashedPassword);
     $stmt->execute();
 
-    echo "Signup Successful";
-} catch (mysqli_sql_exception $error) {
+    echo "Inserted ID: " . $conn->insert_id;
+    exit;
+}
+catch (mysqli_sql_exception $error) {
     http_response_code(500);
-    echo "Database error";
+    echo $error->getMessage();
 }
 ?>
