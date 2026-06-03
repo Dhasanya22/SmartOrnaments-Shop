@@ -1,4 +1,5 @@
 <?php
+@session_start();
 header("Content-Type: text/plain; charset=utf-8");
 
 if ($_SERVER["REQUEST_METHOD"] !== "POST") {
@@ -74,12 +75,6 @@ try {
     $conn = openStoreDatabase();
     ensureUsersTable($conn);
 
-    echo "Connected DB: ";
-    $result = $conn->query("SELECT DATABASE() as db");
-    $row = $result->fetch_assoc();
-    echo $row['db'];
-    exit;
-
     $check = $conn->prepare("SELECT id FROM users WHERE email = ?");
     $check->bind_param("s", $email);
     $check->execute();
@@ -96,8 +91,11 @@ try {
     $stmt->bind_param("sss", $name, $email, $hashedPassword);
     $stmt->execute();
 
-    echo "Inserted ID: " . $conn->insert_id;
-    exit;
+    $_SESSION["user"] = $name;
+    $_SESSION["email"] = $email;
+    $_SESSION["role"] = "customer";
+
+    echo "Signup Successful";
 }
 catch (mysqli_sql_exception $error) {
     http_response_code(500);

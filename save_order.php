@@ -1,4 +1,5 @@
 <?php
+@session_start();
 header("Content-Type: application/json; charset=utf-8");
 
 $ownerEmail = "smartornaments.shop@gmail.com";
@@ -6,6 +7,12 @@ $ownerEmail = "smartornaments.shop@gmail.com";
 if ($_SERVER["REQUEST_METHOD"] !== "POST") {
     http_response_code(405);
     echo json_encode(["success" => false, "error" => "Please submit an order"]);
+    exit;
+}
+
+if (empty($_SESSION["user"]) && empty($_SESSION["email"])) {
+    http_response_code(401);
+    echo json_encode(["success" => false, "error" => "Login required. Please login before checkout."]);
     exit;
 }
 
@@ -29,6 +36,7 @@ $addressType = trim($customer["addressType"] ?? ($customer["address_type"] ?? "H
 $address = trim($customer["address"] ?? "");
 $state = trim($customer["state"] ?? "");
 $district = trim($customer["district"] ?? "");
+$city = trim($customer["city"] ?? "");
 $street = trim($customer["buildingStreet"] ?? ($customer["street"] ?? $areaStreet));
 $pincode = trim($customer["pincode"] ?? "");
 $customizationName = trim($customer["customizationName"] ?? ($customer["customization_name"] ?? ""));
@@ -56,6 +64,10 @@ if ($address === "") {
 
 if ($street === "") {
     $street = $areaStreet;
+}
+
+if ($district === "") {
+    $district = $city;
 }
 
 if ($name === "" || $phone === "" || $flatNo === "" || $areaStreet === "" || $addressType === "" || $state === "" || $district === "" || $pincode === "" || count($items) === 0) {

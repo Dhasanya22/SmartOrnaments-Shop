@@ -1,5 +1,5 @@
 <?php
-session_start();
+@session_start();
 header("Content-Type: text/plain; charset=utf-8");
 
 $adminEmail = "smartornaments.shop@gmail.com";

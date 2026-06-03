@@ -4462,41 +4462,40 @@ async function login() {
     const credentials = getAuthCredentials();
     if (!credentials) return false;
 
-    if (isAdminLoginId(credentials.username) && credentials.password === "admin123") {
-        completeLogin({ username: adminEmail, role: "admin" });
-        return true;
-    }
+    const isLocalAdminCredential = isAdminLoginId(credentials.username) && credentials.password === "admin123";
 
     if (useBackend) {
-        try {
-            const data = await apiRequest("/api/auth/login", {
-                method: "POST",
-                body: JSON.stringify(credentials)
-            });
-            completeLogin(data.user, data.token);
-            return true;
-        } catch (error) {
-            if (isApiUnavailableError(error)) {
-                console.warn(error.message);
-            } else {
-                setAuthMessage(error.message, "error");
-                return false;
+        if (!isLocalAdminCredential) {
+            try {
+                const data = await apiRequest("/api/auth/login", {
+                    method: "POST",
+                    body: JSON.stringify(credentials)
+                });
+                completeLogin(data.user, data.token);
+                return true;
+            } catch (error) {
+                if (isApiUnavailableError(error)) {
+                    console.warn(error.message);
+                } else {
+                    setAuthMessage(error.message, "error");
+                    return false;
+                }
             }
-        }
 
-        try {
-            const data = await apiRequest("/api/login", {
-                method: "POST",
-                body: JSON.stringify(credentials)
-            });
-            completeLogin(data.user, data.token);
-            return true;
-        } catch (error) {
-            if (isApiUnavailableError(error)) {
-                console.warn(error.message);
-            } else {
-                setAuthMessage(error.message, "error");
-                return false;
+            try {
+                const data = await apiRequest("/api/login", {
+                    method: "POST",
+                    body: JSON.stringify(credentials)
+                });
+                completeLogin(data.user, data.token);
+                return true;
+            } catch (error) {
+                if (isApiUnavailableError(error)) {
+                    console.warn(error.message);
+                } else {
+                    setAuthMessage(error.message, "error");
+                    return false;
+                }
             }
         }
 
@@ -4518,6 +4517,11 @@ async function login() {
                 return false;
             }
         }
+    }
+
+    if (isLocalAdminCredential) {
+        completeLogin({ username: adminEmail, role: "admin" });
+        return true;
     }
 
     const user = getLocalUsers().find(item =>
@@ -4677,6 +4681,8 @@ document.addEventListener("DOMContentLoaded", () => {
     initStepFiveFeatures();
 });
 
+const checkoutLoginRequiredMessage = "Login required. Please login before checkout.";
+
 function requireLogin(redirectTo = getCurrentPage()) {
     if (localStorage.getItem("loggedInUser")) {
         return true;
@@ -4686,6 +4692,26 @@ function requireLogin(redirectTo = getCurrentPage()) {
     sessionStorage.setItem("loginRedirect", redirect);
     window.location.href = "login.html?redirect=" + encodeURIComponent(redirect);
     return false;
+}
+
+function clearStoredLogin() {
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("token");
+    localStorage.removeItem("loggedInUser");
+    localStorage.removeItem("userRole");
+}
+
+function isLoginRequiredError(error) {
+    return /login required|please login/i.test(String(error?.message || ""));
+}
+
+function promptCheckoutLogin(details = null, checkoutMsg = document.getElementById("checkoutMsg"), forceLogin = false) {
+    if (details) saveCheckoutDetails(details);
+    sessionStorage.setItem("pendingCheckout", "true");
+    if (checkoutMsg) checkoutMsg.innerText = checkoutLoginRequiredMessage;
+    if (forceLogin) clearStoredLogin();
+    alert(checkoutLoginRequiredMessage);
+    requireLogin("checkout.html");
 }
 
 async function addToCart(name, price) {
@@ -5008,7 +5034,8 @@ function getCheckoutDetails() {
     const savedUser = localStorage.getItem("loggedInUser");
     const flatNo = getFieldValue("flatNo");
     const areaStreet = getFieldValue("areaStreet");
-    const city = getFieldValue("city") || getFieldValue("district");
+    const district = getFieldValue("district");
+    const city = getFieldValue("city") || district;
     const address = [flatNo, areaStreet, city].filter(Boolean).join(", ");
 
     return {
@@ -5019,7 +5046,7 @@ function getCheckoutDetails() {
         addressType: getFieldValue("addressType") || "Home",
         address,
         state: getFieldValue("state"),
-        district: getFieldValue("district"),
+        district,
         city,
         buildingStreet: areaStreet,
         pincode: getFieldValue("pincode"),
@@ -5215,8 +5242,8 @@ function resumePendingCheckout() {
 }
 
 function validateCheckout(details) {
-    if (!details.name || !details.phone || !details.flatNo || !details.areaStreet || !details.addressType || !details.state || !details.city || !details.pincode || !details.paymentMethod) {
-        return "Name, phone number, address, city, state, pincode, and payment method are required.";
+    if (!details.name || !details.phone || !details.flatNo || !details.areaStreet || !details.addressType || !details.state || !details.district || !details.city || !details.pincode || !details.paymentMethod) {
+        return "Name, phone number, address, city, district, state, pincode, and payment method are required.";
     }
 
     if (details.phone.replace(/\D/g, "").length < 10) {
@@ -5247,6 +5274,12 @@ async function checkout() {
 
     const details = getCheckoutDetails();
     const checkoutMsg = document.getElementById("checkoutMsg");
+
+    if (!localStorage.getItem("loggedInUser")) {
+        promptCheckoutLogin(details, checkoutMsg);
+        return;
+    }
+
     const validationError = validateCheckout(details);
 
     if (validationError) {
@@ -5346,7 +5379,14 @@ async function placeOrder(orderData, message, checkoutMsg, options = {}) {
             finishCheckout(order, message, orderData, options);
             return;
         } catch (error) {
-            if (!isApiUnavailableError(error)) {
+            if (isLoginRequiredError(error)) {
+                if (!hasAuthToken()) {
+                    promptCheckoutLogin(orderData.customer, checkoutMsg, true);
+                    return;
+                }
+
+                console.warn(error.message);
+            } else if (!isApiUnavailableError(error)) {
                 if (checkoutMsg) checkoutMsg.innerText = "Order not saved: " + error.message;
                 return;
             }
@@ -5365,8 +5405,13 @@ async function placeOrder(orderData, message, checkoutMsg, options = {}) {
             finishCheckout(data.order, message, orderData, options);
             return;
         } catch (error) {
+            if (isLoginRequiredError(error)) {
+                promptCheckoutLogin(orderData.customer, checkoutMsg, true);
+                return;
+            }
+
             if (!isApiUnavailableError(error)) {
-                if (checkoutMsg) checkoutMsg.innerText = error.message + ". Please login before checkout.";
+                if (checkoutMsg) checkoutMsg.innerText = error.message;
                 return;
             }
 
